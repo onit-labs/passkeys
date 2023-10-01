@@ -13,10 +13,10 @@ A collection of utilities to enable passkey accounts in [viem](https://viem.sh) 
 
 ## Installation
 
-Install wagmi, viem & passkeys.js
+Install wagmi, viem & @forum/passkeys
 
 ```bash
-pnpm install wagmi viem passkeys.js
+pnpm install wagmi viem @forum/passkeys
 ```
 
 
@@ -32,7 +32,7 @@ It splits the setup process into three steps:
 
    ```tsx
 
-   import { Passkey as AbstractPasskey } from '@forum/passkey-accounts'
+   import { Passkey as AbstractPasskey } from '@forum/passkeys'
 
    export class Passkey extends AbstractPasskey {
 
@@ -78,7 +78,7 @@ It splits the setup process into three steps:
    ```tsx
    import { useAccount, useConfig, useConnect, useDisconnect } from 'wagmi'
    import { generatePrivateKey, privateKeyToAddress } from 'viem/accounts'
-   import { PasskeyConnector } from 'passkeys.js'
+   import { PasskeyConnector } from '@forum/passkeys'
 
    export const useCreateAccount() {
       const config = useConfig()
@@ -146,7 +146,7 @@ It splits the setup process into three steps:
    ```tsx
    import { useAccount, useConfig, useConnect, useDisconnect } from 'wagmi'
    import { generatePrivateKey, privateKeyToAddress } from 'viem/accounts'
-   import { PasskeyConnector } from 'passkeys.js'
+   import { PasskeyConnector } from '@forum/passkeys'
    import { useCreateAccount } from './use-create-account.ts'
 
    function Profile() {

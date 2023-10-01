@@ -1,5 +1,5 @@
 {
-  "name": "passkeys.js",
+  "name": "@forum/passkeys",
   "module": "index.ts",
   "type": "module",
   "version": "0.1.0",
