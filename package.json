@@ -18,7 +18,6 @@
     "format": "biome format . --write",
     "lint": "biome check .",
     "lint:fix": "bun run lint --apply",
-    "prepublishOnly": "bun scripts/prepublishOnly.ts",
     "size": "size-limit",
     "test": "vitest dev",
     "test:cov": "vitest run --coverage",
