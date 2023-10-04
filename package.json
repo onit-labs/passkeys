@@ -2,7 +2,7 @@
   "name": "@forum/passkeys",
   "module": "index.ts",
   "type": "module",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A utility library for using (webauthn) passkeys with viem & wagmi",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
