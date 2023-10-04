@@ -51,6 +51,15 @@
   },
   "dependencies": {
     "viem": "^1.14.0",
-    "wagmi": "^1.4.2"
-  }
+    "wagmi": "^1.4.2",
+    "zod": "^3.22.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/forumdaos/passkeys.git"
+  },
+  "bugs": {
+    "url": "https://github.com/forumdaos/passkeys/issues"
+  },
+  "homepage": "https://github.com/forumdaos/passkeys#readme"
 }
