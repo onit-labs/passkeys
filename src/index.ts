@@ -5,6 +5,8 @@ export * from './passkey-provider'
 export * from './passkey.types'
 
 export {
+    type Base64String,
+    type Base64URLString,
     webauthnAuthenticationResponseSchema,
     webauthnRegisterationResultSchema
 } from './utils/webauthn-zod'
