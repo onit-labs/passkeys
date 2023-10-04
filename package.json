@@ -44,15 +44,11 @@
   "peerDependencies": {
     "typescript": "^5.0.0",
     "viem": "*",
-    "wagmi": "*"
+    "wagmi": "*",
+    "zod": "*"
   },
   "simple-git-hooks": {
     "pre-commit": "bun run format && bun run lint:fix"
-  },
-  "dependencies": {
-    "viem": "^1.14.0",
-    "wagmi": "^1.4.2",
-    "zod": "^3.22.3"
   },
   "repository": {
     "type": "git",
