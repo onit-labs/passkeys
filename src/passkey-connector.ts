@@ -1,160 +1,160 @@
-import type { getConfig } from '@wagmi/core'
-import { createWalletClient, custom, getAddress } from 'viem'
-import { Connector, ConnectorNotFoundError } from 'wagmi'
+import { ProviderNotFoundError, createConnector, normalizeChainId } from "@wagmi/core";
+import type { Evaluate } from "@wagmi/core/internal";
+import {
+	http,
+	PublicClient,
+	createPublicClient,
+	createWalletClient,
+	custom,
+	getAddress,
+} from "viem";
 
-import { PasskeyAccount, PresentationParams } from './large-blob-passkey-account'
-import { PasskeyProvider, PasskeyProviderOptions, PasskeyWalletClient } from './passkey-provider'
+import { ConnectorNotFoundError } from "wagmi";
+// TODO: split this into a different file and create a sca passkey account
+import { PasskeyAccount, PresentationParams } from "./large-blob-passkey-account";
+import { PasskeyProvider, PasskeyWalletClient } from "./passkey-provider";
 
-// ! taken from https://github.com/wagmi-dev/wagmi/blob/6f47485ec9837059def3b1a8df547de9eda16284/packages/connectors/src/utils/normalizeChainId.ts
-function normalizeChainId(chainId: string | number | bigint) {
-	if (typeof chainId === 'string')
-		return Number.parseInt(chainId, chainId.trim().substring(0, 2) === '0x' ? 16 : 10)
-	if (typeof chainId === 'bigint') return Number(chainId)
-	return chainId
-}
+const SHIM_DISCONNECT_KEY = "passkey.disconnect" as const;
 
-type WagmiConfig = Pick<ReturnType<typeof getConfig>, 'publicClient' | 'lastUsedChainId' | 'chains'>
+type PasskeyConnectorParameters = Evaluate<{
+	account?: PasskeyAccount;
+	presentationParams?: PresentationParams;
+	publicClient?: PublicClient;
+	chainId?: number;
+	/**
+	 * Connector automatically connects when used as Safe App.
+	 *
+	 * This flag simulates the disconnect behavior by keeping track of connection status in storage
+	 * and only autoconnecting when previously connected by user action (e.g. explicitly choosing to connect).
+	 *
+	 * @default false
+	 */
+	shimDisconnect?: boolean | undefined;
+}>;
+
+type Provider = PasskeyProvider | undefined;
+type Properties = Pick<
+	PasskeyConnectorParameters,
+	"account" | "presentationParams" | "chainId" | "publicClient"
+>;
+type StorageItem = { [SHIM_DISCONNECT_KEY]: true };
 
 /**
  * Connector for Passkey Wallets
  */
-export class PasskeyConnector extends Connector<PasskeyProvider, PasskeyProviderOptions> {
-	readonly id = 'passkey'
-	readonly name = 'Passkey'
-	ready = true
+export function passkeyConnector(parameters: PasskeyConnectorParameters = {}) {
+	const { shimDisconnect = true } = parameters;
 
-	account: PasskeyAccount
-	#provider?: PasskeyProvider
-	#config?: WagmiConfig
+	let provider_: Provider | undefined = undefined;
+	let publicClient_ = parameters.publicClient;
 
-	protected shimDisconnectKey = `${this.id}.shimDisconnect`
+	return createConnector<Provider, Properties, StorageItem>((config) => ({
+		id: "passkey",
+		name: "Passkey",
 
-	constructor({
-		account,
-		config,
-		options: options_,
-	}: {
-		account: PasskeyAccount
-		presentationParams: PresentationParams
-		config: WagmiConfig
-		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-		options?: any
-	}) {
-		const options = {
-			shimDisconnect: false,
-			...options_,
-		}
-		super({ chains: config.chains, options })
+		async connect() {
+			const provider = await this.getProvider();
+			if (!provider) throw new ConnectorNotFoundError();
 
-		this.account = account
-		this.#config = config
-	}
+			const accounts = await this.getAccounts();
+			const chainId = await this.getChainId();
 
-	async connect() {
-		const provider = await this.getProvider()
-		if (!provider) throw new ConnectorNotFoundError()
+			provider.on("disconnect", this.onDisconnect.bind(this));
 
-		if (provider.on) {
-			provider.on('accountsChanged', this.onAccountsChanged)
-			provider.on('chainChanged', this.onChainChanged)
-			provider.on('disconnect', this.onDisconnect)
-		}
+			// Add shim to storage signalling wallet is connected
+			if (shimDisconnect) config.storage?.setItem(SHIM_DISCONNECT_KEY, true);
 
-		this.emit('message', { type: 'connecting' })
+			return { accounts, chainId };
+		},
 
-		const account = await this.getAccount()
-		const id = await this.getChainId()
+		async disconnect() {
+			const provider = await this.getProvider();
+			if (!provider) throw new ProviderNotFoundError();
 
-		// Add shim to storage signalling wallet is connected
-		if (this.options.shimDisconnect) this.storage?.setItem(this.shimDisconnectKey, true)
+			provider.removeListener("disconnect", this.onDisconnect);
 
-		return {
-			account,
-			chain: { id, unsupported: this.isChainUnsupported(id) },
-		}
-	}
+			// Remove shim signalling wallet is disconnected
+			if (shimDisconnect) config.storage?.removeItem(SHIM_DISCONNECT_KEY);
+		},
 
-	async disconnect() {
-		const provider = await this.getProvider()
-		if (!provider?.removeListener) return
+		async getAccounts() {
+			const provider = await this.getProvider();
+			if (!provider) throw new ProviderNotFoundError();
+			const accounts = (await provider.request({ method: "eth_accounts" })) as [
+				string,
+				...string[],
+			];
+			return accounts.map(getAddress);
+		},
 
-		provider.removeListener('accountsChanged', this.onAccountsChanged)
-		provider.removeListener('chainChanged', this.onChainChanged)
-		provider.removeListener('disconnect', this.onDisconnect)
+		async getChainId() {
+			const provider = await this.getProvider();
+			if (!provider) throw new ConnectorNotFoundError();
+			return normalizeChainId(provider.chainId);
+		},
 
-		// Remove shim signalling wallet is disconnected
-		if (this.options.shimDisconnect) this.storage?.removeItem(this.shimDisconnectKey)
-	}
+		async getProvider() {
+			if (!provider_) {
+				const chain = config.chains?.[0];
+				if (!chain) throw new Error("Unsupported chain");
 
-	async getAccount() {
-		const provider = await this.getProvider()
-		if (!provider) throw new ConnectorNotFoundError()
-		const accounts = (await provider.request({ method: 'eth_accounts' })) as [string, ...string[]]
-		return getAddress(accounts[0])
-	}
+				if (!publicClient_)
+					publicClient_ = createPublicClient({
+						transport: http(),
+					});
 
-	async getChainId() {
-		const provider = await this.getProvider()
-		if (!provider) throw new ConnectorNotFoundError()
-		return normalizeChainId(provider.chainId)
-	}
+				const provider = new PasskeyProvider({
+					chainId: parameters.chainId ?? chain?.id,
+					walletClient: createWalletClient({
+						account: this.account,
+						chain,
+						transport: custom(publicClient_),
+					}),
+				});
+				provider_ = provider;
+			}
+			return provider_;
+		},
 
-	async getProvider() {
-		if (!this.#provider) {
-			const chain = this.chains?.[0]
-			if (!chain) throw new Error('Unsupported chain')
+		async getWalletClient({ chainId }: { chainId?: number } = {}): Promise<PasskeyWalletClient> {
+			const provider = await this.getProvider();
+			const chain = config.chains.find((x) => x.id === chainId);
+			if (!provider) throw new Error("provider is required.");
+			if (!chain) throw new Error("chain is required.");
+			return createWalletClient({ account: this.account, chain, transport: custom(provider) });
+		},
 
-			const { publicClient, lastUsedChainId } = this.#config ?? {}
+		async isAuthorized() {
+			try {
+				const isDisconnected =
+					shimDisconnect &&
+					// If shim does not exist in storage, wallet is disconnected
+					!config.storage?.getItem(SHIM_DISCONNECT_KEY);
 
-			if (!publicClient) throw new Error('Missing publicClient')
+				if (isDisconnected) return false;
 
-			const provider = new PasskeyProvider({
-				chainId: lastUsedChainId ?? chain?.id,
-				walletClient: createWalletClient({
-					account: this.account,
-					chain,
-					transport: custom(publicClient),
-				}),
-			})
-			this.#provider = provider
-		}
-		return this.#provider
-	}
+				const accounts = await this.getAccounts();
 
-	async getWalletClient({ chainId }: { chainId?: number } = {}): Promise<PasskeyWalletClient> {
-		const provider = await this.getProvider()
-		const chain = this.chains.find((x) => x.id === chainId)
-		if (!provider) throw new Error('provider is required.')
-		if (!chain) throw new Error('chain is required.')
-		return createWalletClient({ account: this.account, chain, transport: custom(provider) })
-	}
+				return !!accounts.length;
+			} catch {
+				return false;
+			}
+		},
+		onAccountsChanged(accounts) {
+			if (accounts.length === 0) config.emitter.emit("disconnect");
+			else config.emitter.emit("change", { accounts: accounts.map(getAddress) });
+		},
+		onChainChanged(chain) {
+			const chainId = normalizeChainId(chain);
+			config.emitter.emit("change", { chainId });
+		},
+		async onDisconnect(_error) {
+			config.emitter.emit("disconnect");
 
-	async isAuthorized() {
-		try {
-			if (
-				this.options.shimDisconnect &&
-				// If shim does not exist in storage, wallet is disconnected
-				!this.storage?.getItem(this.shimDisconnectKey)
-			)
-				return false
-
-			const address = await this.getAccount()
-
-			return !!address
-		} catch {
-			return false
-		}
-	}
-
-	protected onAccountsChanged(_accounts: string[]) {
-		// TODO
-	}
-
-	protected onChainChanged(_chainId: string | number) {
-		// TODO
-	}
-
-	protected onDisconnect() {
-		this.emit('disconnect')
-	}
+			const provider = await this.getProvider();
+			provider?.removeListener("accountsChanged", this.onAccountsChanged);
+			provider?.removeListener("chainChanged", this.onChainChanged);
+			provider?.removeListener("disconnect", this.onDisconnect.bind(this));
+		},
+	}));
 }

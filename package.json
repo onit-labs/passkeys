@@ -57,5 +57,9 @@
   "bugs": {
     "url": "https://github.com/forumdaos/passkeys/issues"
   },
-  "homepage": "https://github.com/forumdaos/passkeys#readme"
+  "homepage": "https://github.com/forumdaos/passkeys#readme",
+  "dependencies": {
+    "viem": "2.0.0-alpha.17",
+    "wagmi": "alpha"
+  }
 }
