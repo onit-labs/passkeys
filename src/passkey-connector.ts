@@ -106,7 +106,7 @@ export function passkeyConnector(parameters: PasskeyConnectorParameters = {}) {
 				const provider = new PasskeyProvider({
 					chainId: parameters.chainId ?? chain?.id,
 					walletClient: createWalletClient({
-						account: this.account,
+						account: this.account ?? parameters.account,
 						chain,
 						transport: custom(publicClient_),
 					}),
