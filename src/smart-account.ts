@@ -59,6 +59,7 @@ interface DeployedSmartAccountArgs {
 
 export class SmartAccount implements LocalAccount {
 	#initCode?: Hex;
+	#deploymentStatus?: "unknown" | "deployed" | "counterfactual" = "unknown";
 	publicClient?: PublicClient;
 	address: `0x${string}`;
 
@@ -107,7 +108,17 @@ export class SmartAccount implements LocalAccount {
 
 	async getIsAccountDeployed() {
 		this.assertPublicClient();
-		return await SmartAccount.getIsAccountDeployed(this.address, this.publicClient);
+		if (this.#deploymentStatus === "deployed") return true;
+		if (this.#deploymentStatus === "counterfactual") return false;
+
+		this.#deploymentStatus = (await SmartAccount.getIsAccountDeployed(
+			this.address,
+			this.publicClient,
+		))
+			? "deployed"
+			: "counterfactual";
+
+		return this.#deploymentStatus === "deployed";
 	}
 
 	/**
