@@ -103,7 +103,8 @@ interface BaseSmartAccountPasskeyParams {
 type SmartAccountPasskeyParams = BaseSmartAccountPasskeyParams &
 	(CounterFactualSmartAccountArgs | DeployedSmartAccountArgs);
 
-export abstract class SmartAccountPasskey extends Passkey {
+// tODO: update this to be the signer
+export abstract class PasskeySigner extends Passkey {
 	constructor(public account: SmartAccountPasskeyParams, public params: PasskeyParams) {
 		super(params);
 	}

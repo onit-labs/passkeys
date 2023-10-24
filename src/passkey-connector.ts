@@ -11,14 +11,13 @@ import {
 
 import { ConnectorNotFoundError } from "wagmi";
 // TODO: split this into a different file and create a sca passkey account
-import { PasskeyAccount, PresentationParams } from "./large-blob-passkey-account";
+import { PasskeyAccount } from "./large-blob-passkey-account";
 import { PasskeyProvider, PasskeyWalletClient } from "./passkey-provider";
 
 const SHIM_DISCONNECT_KEY = "passkey.disconnect" as const;
 
 type PasskeyConnectorParameters = Evaluate<{
 	account?: PasskeyAccount;
-	presentationParams?: PresentationParams;
 	publicClient?: PublicClient;
 	chainId?: number;
 	/**
@@ -33,10 +32,7 @@ type PasskeyConnectorParameters = Evaluate<{
 }>;
 
 type Provider = PasskeyProvider | undefined;
-type Properties = Pick<
-	PasskeyConnectorParameters,
-	"account" | "presentationParams" | "chainId" | "publicClient"
->;
+type Properties = Pick<PasskeyConnectorParameters, "account" | "chainId" | "publicClient">;
 type StorageItem = { [SHIM_DISCONNECT_KEY]: true };
 
 /**
@@ -95,16 +91,13 @@ export function passkeyConnector(parameters: PasskeyConnectorParameters = {}) {
 
 		async getProvider() {
 			if (!provider_) {
-				const chain = config.chains?.[0];
+				const chain = config.chains.find((x) => x.id === parameters?.chainId);
 				if (!chain) throw new Error("Unsupported chain");
 
-				if (!publicClient_)
-					publicClient_ = createPublicClient({
-						transport: http(),
-					});
+				if (!publicClient_) publicClient_ = createPublicClient({ transport: http() });
 
 				const provider = new PasskeyProvider({
-					chainId: parameters.chainId ?? chain?.id,
+					chainId: chain.id,
 					walletClient: createWalletClient({
 						account: this.account ?? parameters.account,
 						chain,
