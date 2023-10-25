@@ -1,4 +1,4 @@
-import { Address, Hex, parseAbi } from "viem";
+import { Address, Hex } from "viem";
 import {
 	AuthenticationResponseJSON,
 	PublicKeyCredentialCreationOptionsJSON,
@@ -65,8 +65,8 @@ interface CounterFactualSmartAccountArgs {
 	salt?: bigint;
 	factory: {
 		/**
-		 * The abi of the smart account or its deploy function
-		 * should be in a form that is parsable by viem [`parseAbi`](https://viem.sh/docs/abi/parseAbi.html#parseabi)
+		 * The abi of the smart account factory or just the deploy function
+		 * @warning should be in a form that is parsable by viem [`parseAbi`](https://viem.sh/docs/abi/parseAbi.html#parseabi)
 		 */
 		deployFunctionAbi: readonly string[];
 		deployFunctionName: string;

@@ -1,25 +1,32 @@
 import {
-	Address,
-	Transport,
-	// concat,
+	concat,
+	concatHex,
+	createPublicClient,
+	encodeAbiParameters,
+	encodeFunctionData,
+	getContract,
+	parseAbi,
+	parseAbiParameters,
+	type Address,
+	type Client,
+	type ContractFunctionExecutionErrorType,
+	type ContractFunctionRevertedErrorType,
+	type FallbackTransport,
+	type GetContractReturnType,
 	type Hex,
+	type HttpTransport,
 	type LocalAccount,
+	type PublicClient,
 	type SerializeTransactionFn,
 	type SignableMessage,
 	type TransactionSerializable,
+	type Transport,
 	type TypedData,
 	type TypedDataDefinition,
-	type FallbackTransport,
-	type HttpTransport,
-	type PublicClient,
-	createPublicClient,
-	parseAbi,
-	encodeFunctionData,
-	concat,
-	encodeAbiParameters,
-	parseAbiParameters,
 } from "viem";
+import { ENTRYPOINT_ABI, GET_SENDER_ADDRESS_ABI } from "./utils/abis/entrypoint";
 import { SmartAccountSigner } from "./utils/signer.type";
+import { UserOperationCallData } from "./types/4337";
 
 interface CounterFactualSmartAccountArgs {
 	/**
@@ -52,6 +59,8 @@ interface DeployedSmartAccountArgs {
 	address: Address;
 }
 
+type EntryPoint = GetContractReturnType<typeof ENTRYPOINT_ABI, Client>;
+
 /**
  * TODO:
  * - [ ] implement 1271 for deployed accounts
@@ -60,6 +69,7 @@ interface DeployedSmartAccountArgs {
 export class SmartAccount implements LocalAccount {
 	#initCode?: Hex;
 	#deploymentStatus?: "unknown" | "deployed" | "counterfactual" = "unknown";
+	entryPoint?: EntryPoint;
 	publicClient?: PublicClient;
 	address: `0x${string}`;
 
@@ -68,6 +78,11 @@ export class SmartAccount implements LocalAccount {
 		public options: {
 			transport: Transport | FallbackTransport | HttpTransport;
 			entryPoint: Address;
+			/**
+			 * The abi of the smart account
+			 * @warning should be in a form that is parsable by viem [`parseAbi`](https://viem.sh/docs/abi/parseAbi.html#parseabi)
+			 */
+			accountAbi: readonly string[];
 			smartAccount: CounterFactualSmartAccountArgs | DeployedSmartAccountArgs;
 			actions?: Parameters<PublicClient["extend"]>[0];
 		},
@@ -77,13 +92,16 @@ export class SmartAccount implements LocalAccount {
 		public type = "local" as const,
 	) {
 		// ! this should be the SCA address not the signer
-		this.address = "0x";
 		this.publicClient = createPublicClient({
 			transport: this.options.transport,
 		}).extend((client) => {
 			if (this.options.actions) return this.options.actions(client);
 			return {};
 		});
+
+		this.getEntryPointContract();
+
+		this.address = this.getAccountAddress();
 	}
 
 	assertCounterFactualOptionsAvailable(): asserts this is Extract<
@@ -98,6 +116,10 @@ export class SmartAccount implements LocalAccount {
 		if (!this.publicClient) throw new Error("Failed to init public client");
 	}
 
+	assertEntryPoint(): asserts this is this & { entryPoint: EntryPoint } {
+		if (!this.getEntryPointContract()) throw new Error("Failed to find entrypoint");
+	}
+
 	static async getIsAccountDeployed(address: Address, publicClient: PublicClient) {
 		const contractCode = await publicClient.getBytecode({ address });
 
@@ -106,19 +128,133 @@ export class SmartAccount implements LocalAccount {
 		return false;
 	}
 
-	async getIsAccountDeployed() {
-		this.assertPublicClient();
-		if (this.#deploymentStatus === "deployed") return true;
-		if (this.#deploymentStatus === "counterfactual") return false;
+	static async getSenderAddress(
+		{ initCode, entryPoint }: { initCode: Hex; entryPoint: Address },
+		publicClient: PublicClient,
+	): Promise<Address> {
+		try {
+			await publicClient.simulateContract({
+				address: entryPoint,
+				abi: GET_SENDER_ADDRESS_ABI,
+				functionName: "getSenderAddress",
+				args: [initCode],
+			});
+		} catch (e) {
+			const err = e as ContractFunctionExecutionErrorType;
 
-		this.#deploymentStatus = (await SmartAccount.getIsAccountDeployed(
-			this.address,
-			this.publicClient,
-		))
-			? "deployed"
-			: "counterfactual";
+			if (err.cause.name === "ContractFunctionRevertedError") {
+				const revertError = err.cause as ContractFunctionRevertedErrorType;
+				const errorName = revertError.data?.errorName ?? "";
+				if (
+					errorName === "SenderAddressResult" &&
+					revertError.data?.args &&
+					revertError.data?.args[0]
+				) {
+					return revertError.data?.args[0] as Address;
+				}
+			}
+
+			throw e;
+		}
+
+		throw new Error("Failed to get account address");
+	}
+
+	getEntryPointContract(): EntryPoint {
+		this.assertPublicClient();
+		if (!this.entryPoint)
+			this.entryPoint = getContract({
+				abi: ENTRYPOINT_ABI,
+				address: this.options.entryPoint,
+				client: this.publicClient,
+			});
+
+		return this.entryPoint;
+	}
+
+	async getIsAccountDeployed(): Promise<boolean> {
+		this.assertPublicClient();
+
+		if (this.#deploymentStatus === "unknown")
+			this.#deploymentStatus = (await SmartAccount.getIsAccountDeployed(
+				this.address,
+				this.publicClient,
+			))
+				? "deployed"
+				: "counterfactual";
 
 		return this.#deploymentStatus === "deployed";
+	}
+
+	async getNonce({ key = 0n }: { key: bigint }): Promise<bigint> {
+		this.assertEntryPoint();
+		if (!(await this.getIsAccountDeployed())) return 0n;
+		const address = await this.getAccountAddress();
+		return this.entryPoint.read.getNonce([address, key]);
+	}
+
+	async getAccountInitCode(): Promise<Hex> {
+		if (!this.#initCode) {
+			this.assertCounterFactualOptionsAvailable();
+
+			const salt = this.options.smartAccount.salt;
+			const factory = this.options.smartAccount.factory;
+			const signerAddress = await this.signer.getAddress();
+
+			this.#initCode = concatHex([
+				factory.address,
+				encodeFunctionData({
+					abi: parseAbi(factory.deployFunctionAbi),
+					functionName: "createAccount",
+					args: [signerAddress, salt],
+				}),
+			]);
+		}
+
+		return this.#initCode;
+	}
+
+	async getAccountAddress() {
+		this.assertPublicClient();
+		this.assertEntryPoint();
+
+		// - we do this in the method scope so that we can keep the initCode private
+		this.getAccountInitCode();
+		if (!this.#initCode) throw new Error("Failed to find initCode");
+
+		if (!this.address)
+			this.address = await SmartAccount.getSenderAddress(
+				{ initCode: this.#initCode, entryPoint: this.options.entryPoint },
+				this.publicClient,
+			);
+
+		return this.address;
+	}
+
+	async encodeExecute(target: Hex, value: bigint, data: Hex): Promise<`0x${string}`> {
+		return encodeFunctionData({
+			abi: parseAbi(this.options.accountAbi),
+			functionName: "execute",
+			args: [target, value, data],
+		});
+	}
+
+	async encodeBatchExecute(userOps: UserOperationCallData[]): Promise<`0x${string}`> {
+		const [targets, datas] = userOps.reduce(
+			(accum, curr) => {
+				accum[0].push(curr.target);
+				accum[1].push(curr.data);
+
+				return accum;
+			},
+			[[], []] as [Address[], Hex[]],
+		);
+
+		return encodeFunctionData({
+			abi: parseAbi(this.options.accountAbi),
+			functionName: "executeBatch",
+			args: [targets, datas],
+		});
 	}
 
 	/**
@@ -158,10 +294,13 @@ export class SmartAccount implements LocalAccount {
 	}
 
 	async signMessage({ message }: { message: SignableMessage }): Promise<Hex> {
-		// TODO: regardless of the signer we need to check if the account has been deployed or not
-		// TODO: if so then we can early return a standard 1271 sig otherwise use the wrap function to return the sig
+		const isDeployed = await this.getIsAccountDeployed();
 
-		console.log("signMessage", message);
+		// tODO: create a 1271 sig
+		// TODO: if deployed use 1271 sig otherwise use the wrap function to return the sig
+		// TODO: same for typedData
+
+		console.log("signMessage", message, isDeployed);
 		return await this.signer.signMessage({ message });
 	}
 
