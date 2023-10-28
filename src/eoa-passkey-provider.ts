@@ -24,7 +24,7 @@ type Events = {
 type Event = keyof Events;
 export type PasskeyWalletClient = WalletClient<Transport, Chain, PasskeyAccount>;
 
-export class PasskeyProvider {
+export class EoaPasskeyProvider {
 	events = new EventEmitter<Events>();
 
 	chainId: number;
@@ -128,25 +128,8 @@ export class PasskeyProvider {
 			case "eth_chainId":
 				return this.#walletClient?.chain.id;
 
-			case "eth_blockNumber":
-			case "eth_getBalance":
-			case "eth_getCode":
-			case "eth_getTransactionCount":
-			case "eth_getStorageAt":
-			case "eth_getBlockByNumber":
-			case "eth_getBlockByHash":
-			case "eth_getTransactionByHash":
-			case "eth_getTransactionReceipt":
-			case "eth_estimateGas":
-			case "eth_call":
-			case "eth_getLogs":
-			case "eth_gasPrice":
-			case "wallet_getPermissions":
-			case "wallet_requestPermissions":
-				this.#walletClient?.transport.request({ method, params });
-
 			default:
-				throw Error(`"${request.method}" not implemented`);
+				this.#walletClient?.transport.request({ method, params });
 		}
 	}
 

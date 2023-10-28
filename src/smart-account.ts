@@ -21,12 +21,12 @@ import {
 	type SignableMessage,
 	type TransactionSerializable,
 	type Transport,
-	type TypedData,
+	type SignTypedDataParameters,
 	type TypedDataDefinition,
 } from "viem";
 import { ENTRYPOINT_ABI, GET_SENDER_ADDRESS_ABI } from "./utils/abis/entrypoint";
-import { SmartAccountSigner } from "./utils/signer.type";
-import { UserOperationCallData } from "./types/4337";
+import { type SmartAccountSigner } from "@alchemy/aa-core";
+import { type UserOperationCallData } from "./types/4337";
 
 interface CounterFactualSmartAccountArgs {
 	/**
@@ -91,7 +91,6 @@ export class SmartAccount implements LocalAccount {
 		public source = "custom" as const,
 		public type = "local" as const,
 	) {
-		// ! this should be the SCA address not the signer
 		this.publicClient = createPublicClient({
 			transport: this.options.transport,
 		}).extend((client) => {
@@ -101,6 +100,7 @@ export class SmartAccount implements LocalAccount {
 
 		this.getEntryPointContract();
 
+		// ! this should be the SCA address not the signer
 		this.address = this.getAccountAddress();
 	}
 
@@ -307,25 +307,14 @@ export class SmartAccount implements LocalAccount {
 	/**
 	 * This is used when the account has been deployed and will sign 1271
 	 */
-	async signTypedData<
-		const typedData extends TypedData | Record<string, unknown>,
-		primaryType extends keyof typedData | "EIP712Domain" = keyof typedData,
-	>(typedDataDefinition: TypedDataDefinition<typedData, primaryType>) {
+	// @ts-expect-error
+	async signTypedData(typedDataDefinition: Omit<SignTypedDataParameters, "privateKey">) {
 		return await this.signer.signTypedData(typedDataDefinition);
 	}
 
-	// ? Should we try do something that wraps the tx into a userOp
 	// ! for now we assume this is a noop
-	async signTransaction<TTransactionSerializable extends TransactionSerializable>(
-		transaction: TTransactionSerializable,
-		{
-			serializer,
-		}: { serializer?: SerializeTransactionFn<TTransactionSerializable> | undefined } = {
-			serializer: undefined,
-		},
-	) {
-		console.log("signTransaction", transaction);
-		console.log("serializer", serializer);
-		return "0x" as Hex;
+	// @ts-expect-error: // ? Should we try do something that wraps the tx into a userOp
+	async signTransaction() {
+		throw new Error("Please use sendUserOperation");
 	}
 }

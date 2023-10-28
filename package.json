@@ -59,6 +59,7 @@
   },
   "homepage": "https://github.com/forumdaos/passkeys#readme",
   "dependencies": {
+    "@alchemy/aa-core": "^0.1.1",
     "viem": "2.0.0-alpha.17",
     "wagmi": "alpha",
     "zod": "^3.22.4"

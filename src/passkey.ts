@@ -13,7 +13,7 @@ type PasskeyParams = Pick<PublicKeyCredentialCreationOptionsJSON, "rp" | "authen
 
 /**
  * A generic type to emulate the json-ified result of the `get` function on the browser `navigator.credential` api
- * or the result `passkey` api from `rn-passkeys`
+ * or the result `passkey` api from `react-native-passkeys`
  */
 export abstract class Passkey {
 	/**
