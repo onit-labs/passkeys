@@ -1,4 +1,4 @@
-import { Address, Hex } from "viem";
+import { Hex } from "viem";
 import { uint8ArrayToBase64URLString } from "./utils/encoding";
 import { Base64URLString } from "./utils/webauthn-zod";
 import type {
@@ -100,64 +100,12 @@ interface R1SignatureResult {
 	clientDataJSONHex: Hex;
 }
 
-interface CounterFactualSmartAccountArgs {
-	/**
-	 * This is the salt that will be used when deploying the account
-	 */
-	salt?: bigint;
-	factory: {
-		/**
-		 * The abi of the smart account factory or just the deploy function
-		 * @warning should be in a form that is parsable by viem [`parseAbi`](https://viem.sh/docs/abi/parseAbi.html#parseabi)
-		 */
-		deployFunctionAbi: readonly string[];
-		deployFunctionName: string;
-		/**
-		 * The accounts factory address
-		 */
-		address: Address;
-	};
-
-	// /**
-	//  * This is the init code needed to deploy the account
-	//  */
-	// initCode: Hex;
-}
-
-interface DeployedSmartAccountArgs {
-	/**
-	 * The deployed smart account address
-	 */
-	address: Address;
-}
-
-interface BaseSmartAccountPasskeyParams {
-	/**
-	 * This is the credentialId of the passkey used to identify the correct passkey
-	 */
-	credentialId: Base64URLString;
-	/**
-	 * The accounts supported entrypoint
-	 */
-	entrypoint: Address;
-}
-
-type SmartAccountPasskeyParams = BaseSmartAccountPasskeyParams &
-	(CounterFactualSmartAccountArgs | DeployedSmartAccountArgs);
-
-// tODO: update this to be the signer
-export abstract class PasskeySigner extends Passkey {
-	constructor(public account: SmartAccountPasskeyParams, public params: PasskeyParams) {
-		super(params);
-	}
-
-	assertsIsDeployed(): asserts this is Extract<
-		this,
-		{ account: { smartAccount: DeployedSmartAccountArgs } }
-	> {
-		// TODO: With the initCode we could actually assign the counterfactual address if not deployed
-		if ("factory" in this.account) throw new Error("This account has not been deployed");
-	}
+// THIS PROBABLY WON'T BE ABSTRACT
+// TODO: update this signer to use a the methods on the above passkey class to implement the ability to sign messages with
+// i.  [] k1
+// ii. [] r1
+export abstract class PasskeySigner {
+	constructor(public passkey: Passkey, public params: unknown) {}
 
 	/**
 	 * @description A static helper method to make it easier to handle converting the signature result of a passkey in to
