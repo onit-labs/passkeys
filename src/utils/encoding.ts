@@ -1,5 +1,5 @@
 import type { Hex } from "viem";
-import type { Base64URLString } from "./webauthn-zod";
+import type { Base64URLString } from "./webauthn-zod/helpers";
 
 // ! modified from https://github.com/MasterKale/SimpleWebAuthn/blob/e02dce6f2f83d8923f3a549f84e0b7b3d44fa3da/packages/browser/src/helpers/base64URLStringToBuffer.ts
 /**

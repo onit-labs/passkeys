@@ -4,6 +4,12 @@ import {
 	webauthnAuthenticationResponseSchema,
 	webauthnRegistrationResultSchema,
 } from "@forum/passkeys";
+import {
+	publicKeyCredentialCreationOptionsSchema,
+	publicKeyCredentialRequestOptionsSchema,
+	// type PublicKeyCredentialCreationOptionsJSON,
+	// type PublicKeyCredentialRequestOptionsJSON,
+} from "@forum/passkeys/utils/webauthn-zod";
 
 import type {
 	AuthenticationResponseJSON,
@@ -13,11 +19,11 @@ import type {
 } from "@simplewebauthn/typescript-types";
 
 export async function generateRegistrationOptions(): Promise<PublicKeyCredentialCreationOptionsJSON> {
-	return {} as PublicKeyCredentialCreationOptionsJSON;
+	return publicKeyCredentialCreationOptionsSchema.parse({});
 }
 
 export async function generateAuthenticationOptions(): Promise<PublicKeyCredentialRequestOptionsJSON> {
-	return {} as PublicKeyCredentialRequestOptionsJSON;
+	return publicKeyCredentialRequestOptionsSchema.parse({});
 }
 
 export async function verifyAuthentication(): Promise<AuthenticationResponseJSON> {

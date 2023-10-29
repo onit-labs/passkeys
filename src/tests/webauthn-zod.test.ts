@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import { base64StringSchema, base64URLStringSchema } from "../utils/webauthn-zod";
+import { base64StringSchema, base64URLStringSchema } from "src/utils/webauthn-zod/helpers";
 
 const base64Buffer = new Uint8Array([100, 97, 110, 107, 111, 103, 97, 105]);
 const base64String = "ZGFua29nYWk=";
