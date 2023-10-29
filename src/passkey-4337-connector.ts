@@ -1,56 +1,26 @@
 import { ProviderNotFoundError, createConnector, normalizeChainId } from "@wagmi/core";
 import type { Evaluate } from "@wagmi/core/internal";
-import {
-	createWalletClient,
-	custom,
-	getAddress,
-	type Chain,
-	type Transport,
-	type WalletClient,
-} from "viem";
+import { WalletClient, getAddress, type Chain } from "viem";
 
+import { WalletClientSigner, type SmartAccountProvider } from "@alchemy/aa-core";
 import { ConnectorNotFoundError } from "wagmi";
-import { type SmartAccountProvider, type SmartAccountSigner } from "@alchemy/aa-core";
-import { PasskeyAccount as LargeBlobPasskeyAccount } from "./large-blob-passkey-account";
-import { SmartAccount } from "./smart-account";
-import { Base64URLString } from "./utils/webauthn-zod";
 
 const SHIM_DISCONNECT_KEY = "passkey.disconnect" as const;
 
-export type PasskeyWalletClient = WalletClient<
-	Transport,
-	Chain,
-	LargeBlobPasskeyAccount | SmartAccount
->;
-
-type LargeBlobSmartAccountConnector = {
-	type: "large-blob-sca-signer-passkey";
-	account: SmartAccount;
-	chainId: number;
-};
-
-type R1SmartAccountConnector = {
-	type: "r1-sca-signer-passkey";
-	account: SmartAccount;
-	chainId: number;
-};
-
-type Provider = SmartAccountProvider | undefined;
-
-type PasskeyConnectorParameters = Evaluate<
-	{
-		getProvider: (params: { signer: SmartAccountSigner; chain: Chain }) => Provider;
-		/**
-		 * Connector automatically connects when used as Safe App.
-		 *
-		 * This flag simulates the disconnect behavior by keeping track of connection status in storage
-		 * and only autoconnecting when previously connected by user action (e.g. explicitly choosing to connect).
-		 *
-		 * @default false
-		 */
-		shimDisconnect?: boolean | undefined;
-	} & (LargeBlobSmartAccountConnector | R1SmartAccountConnector)
->;
+type PasskeyConnectorParameters = Evaluate<{
+	signer: WalletClientSigner;
+	chain: Chain;
+	provider: SmartAccountProvider;
+	/**
+	 * Connector automatically connects when used as Safe App.
+	 *
+	 * This flag simulates the disconnect behavior by keeping track of connection status in storage
+	 * and only autoconnecting when previously connected by user action (e.g. explicitly choosing to connect).
+	 *
+	 * @default false
+	 */
+	shimDisconnect?: boolean | undefined;
+}>;
 
 type Properties = Omit<PasskeyConnectorParameters, "shimDisconnect">;
 type StorageItem = { [SHIM_DISCONNECT_KEY]: true };
@@ -59,14 +29,10 @@ type StorageItem = { [SHIM_DISCONNECT_KEY]: true };
  * Connector for Passkey Wallets
  */
 
-// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-export function passkeyConnector(parameters: PasskeyConnectorParameters = {} as any) {
-	const { shimDisconnect = true } = parameters;
+export function passkeyConnector(parameters: PasskeyConnectorParameters) {
+	const { shimDisconnect = true, provider } = parameters;
 
-	let provider_: Provider | undefined = undefined;
-	let walletClient: PasskeyWalletClient | undefined = undefined;
-
-	return createConnector<Provider, Properties, StorageItem>((config) => ({
+	return createConnector<SmartAccountProvider, Properties, StorageItem>((config) => ({
 		id: "4337-passkey",
 		name: "4337 Passkey",
 
@@ -97,6 +63,7 @@ export function passkeyConnector(parameters: PasskeyConnectorParameters = {} as 
 			if (shimDisconnect) config.storage?.removeItem(SHIM_DISCONNECT_KEY);
 		},
 
+		// ? if using a EOA we could also include the related addresses in the list?
 		async getAccounts() {
 			const provider = await this.getProvider();
 			if (!provider) throw new ProviderNotFoundError();
@@ -108,34 +75,20 @@ export function passkeyConnector(parameters: PasskeyConnectorParameters = {} as 
 		},
 
 		async getChainId() {
-			const provider = await this.getProvider();
-			if (!provider) throw new ConnectorNotFoundError();
-			return normalizeChainId(provider.chainId);
+			return normalizeChainId(this.chain.id);
+			// const provider = await this.getProvider();
+			// if (!provider) throw new ConnectorNotFoundError();
+			// return normalizeChainId(provider.chainId);
 		},
 
 		async getProvider() {
-			if (!provider_) {
-				const chain = config.chains.find((x) => x.id === parameters?.chainId);
-				if (!chain) throw new Error("Unsupported chain");
-
-				provider_ = parameters.getProvider({ signer: parameters.account, chain });
-			}
-			return provider_;
+			return provider;
 		},
 
-		async getWalletClient({ chainId }: { chainId?: number } = {}): Promise<PasskeyWalletClient> {
-			if (!walletClient) {
-				const provider = await this.getProvider();
-				const chain = config.chains.find((x) => x.id === chainId);
-				if (!provider) throw new Error("provider is required.");
-				if (!chain) throw new Error("chain is required.");
-				walletClient = createWalletClient({
-					account: parameters.account,
-					chain,
-					transport: custom(provider),
-				});
-			}
-			return walletClient;
+		async getWalletClient({ chainId: _ }: { chainId?: number } = {}): Promise<WalletClient> {
+			// TODO: handle chainId
+			// @ts-expect-error
+			return parameters.signer.client;
 		},
 
 		async isAuthorized() {
