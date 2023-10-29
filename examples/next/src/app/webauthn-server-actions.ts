@@ -2,7 +2,7 @@
 
 import {
 	webauthnAuthenticationResponseSchema,
-	webauthnRegisterationResultSchema,
+	webauthnRegistrationResultSchema,
 } from "@forum/passkeys";
 
 import type {
@@ -25,5 +25,5 @@ export async function verifyAuthentication(): Promise<AuthenticationResponseJSON
 }
 
 export async function verifyRegistration(): Promise<RegistrationResponseJSON> {
-	return webauthnRegisterationResultSchema.parse({});
+	return webauthnRegistrationResultSchema.parse({});
 }
