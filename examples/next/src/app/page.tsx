@@ -1,38 +1,23 @@
 "use client";
 
+import { getAlchemyProvider } from "@/lib/alchemy";
+import { defaultChainId, getChainAndTransport } from "@/lib/wagmi";
+import { WalletClientSigner } from "@alchemy/aa-core";
+import { Account, createWalletClient } from "viem";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
-import { startRegistration } from '@simplewebauthn/browser'
-import { GenerateRegistrationOptionsOpts } from "@simplewebauthn/server";
-import { }  from 'passkeys.js'
+import { passkeyConnector } from "@forum/passkeys";
 
-  const opts: GenerateRegistrationOptionsOpts = {
-			rpName: "SimpleWebAuthn Example",
-			rpID,
-			userID: loggedInUserId,
-			userName: username,
-			timeout: 60000,
-			attestationType: "none",
-			/**
-			 * Passing in a user's list of already-registered authenticator IDs here prevents users from
-			 * registering the same device multiple times. The authenticator will simply throw an error in
-			 * the browser if it's asked to perform registration when one of these ID's already resides
-			 * on it.
-			 */
-			excludeCredentials: devices.map((dev) => ({
-				id: dev.credentialID,
-				type: "public-key",
-				transports: dev.transports,
-			})),
-			authenticatorSelection: {
-				residentKey: "discouraged",
-			},
-			/**
-			 * Support the two most common algorithms: ES256, and RS256
-			 */
-			supportedAlgorithmIDs: [-7, -257],
-		};
+function getPasskeyWalletClient(chainId: number) {
+	const { chain, transport } = getChainAndTransport(chainId);
 
+	const walletClient = createWalletClient({
+		account: {} as Account,
+		chain,
+		transport,
+	});
 
+	return walletClient;
+}
 
 function App() {
 	const account = useAccount();
@@ -58,22 +43,50 @@ function App() {
 					</button>
 				)}
 			</div>
-	{account.status === "disconnected" && (
-<div>
-				<h2>Connect</h2>
+			{account.status === "disconnected" && (
+				<div>
+					<h2>Connect</h2>
 
-				<div>{status}</div>
-				<div>{error?.message}</div>
+					<div>{status}</div>
+					<div>{error?.message}</div>
 
+					<button
+						type="button"
+						onClick={() => {
+							const { chain } = getChainAndTransport(defaultChainId);
 
+							/** A largeBlob passkey *CAN* more than more signer that will sign in a single verification
+							 * is this something we want to add?
+							 *
+							 * Accounts could have both EOA & R1 signers that (under certain conditions?) could both be required
+							 * with no difference to UX.
+							 *
+							 */
+							const signer = new WalletClientSigner(
+								getPasskeyWalletClient(defaultChainId),
+								"largeBlob-passkey-signer",
+							);
 
-				<button type="button" onClick={() => connect({ connector:  })}>
-					Connect
-				</button>
-			</div>
-
-				)}
-			
+							connect(
+								{
+									connector: passkeyConnector({
+										signer,
+										chain,
+										provider: getAlchemyProvider({ signer, chain }),
+									}),
+								},
+								{
+									onSuccess: (...args) => console.log("connected passkey account", { ...args }),
+									onError: (...args) =>
+										console.log("failed to connect passkey account", { ...args }),
+								},
+							);
+						}}
+					>
+						Connect
+					</button>
+				</div>
+			)}
 		</>
 	);
 }

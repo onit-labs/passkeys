@@ -1,21 +1,47 @@
 import { Address, Hex } from "viem";
-import {
+import { uint8ArrayToBase64URLString } from "./utils/encoding";
+import { Base64URLString } from "./utils/webauthn-zod";
+import type {
+	VerifiedAuthenticationResponse,
+	VerifiedRegistrationResponse,
+	VerifyAuthenticationResponseOpts,
+	VerifyRegistrationResponseOpts,
+} from "@simplewebauthn/server";
+import type {
 	AuthenticationResponseJSON,
 	PublicKeyCredentialCreationOptionsJSON,
 	PublicKeyCredentialRequestOptionsJSON,
 	RegistrationResponseJSON,
-} from "./passkey.types";
-import { uint8ArrayToBase64URLString } from "./utils/encoding";
-import { Base64URLString } from "./utils/webauthn-zod";
+} from "@simplewebauthn/typescript-types";
 
-type PasskeyParams = Pick<PublicKeyCredentialCreationOptionsJSON, "rp" | "authenticatorSelection"> &
-	Partial<Pick<PublicKeyCredentialCreationOptionsJSON, "pubKeyCredParams">>;
+type PasskeyParams = Pick<PublicKeyCredentialCreationOptionsJSON, "rp"> &
+	Partial<
+		Pick<PublicKeyCredentialCreationOptionsJSON, "pubKeyCredParams" | "authenticatorSelection">
+	>;
+
+interface WebauthnServerVerificationMethods {
+	generateRegistrationOptions(
+		options: Omit<PublicKeyCredentialCreationOptionsJSON, "challenge">,
+	): Promise<PublicKeyCredentialCreationOptionsJSON>;
+
+	generateAuthenticationOptions(
+		options: Omit<PublicKeyCredentialRequestOptionsJSON, "challenge">,
+	): Promise<PublicKeyCredentialRequestOptionsJSON>;
+
+	verifyAuthentication(
+		options: VerifyAuthenticationResponseOpts,
+	): Promise<VerifiedAuthenticationResponse>;
+
+	verifyRegistration(
+		options: VerifyRegistrationResponseOpts,
+	): Promise<VerifiedRegistrationResponse>;
+}
 
 /**
  * A generic type to emulate the json-ified result of the `get` function on the browser `navigator.credential` api
  * or the result `passkey` api from `react-native-passkeys`
  */
-export abstract class Passkey {
+export abstract class Passkey implements WebauthnServerVerificationMethods {
 	/**
 	 * This is simply the most widely supported public key type for webauthn
 	 * so we adopt it as a default to ease the boiler plate for the end user
@@ -39,6 +65,22 @@ export abstract class Passkey {
 				...params.authenticatorSelection,
 			};
 	}
+
+	abstract generateRegistrationOptions(
+		options: Omit<PublicKeyCredentialCreationOptionsJSON, "challenge">,
+	): Promise<PublicKeyCredentialCreationOptionsJSON>;
+
+	abstract generateAuthenticationOptions(
+		options: Omit<PublicKeyCredentialRequestOptionsJSON, "challenge">,
+	): Promise<PublicKeyCredentialRequestOptionsJSON>;
+
+	abstract verifyAuthentication(
+		options: VerifyAuthenticationResponseOpts,
+	): Promise<VerifiedAuthenticationResponse>;
+
+	abstract verifyRegistration(
+		options: VerifyRegistrationResponseOpts,
+	): Promise<VerifiedRegistrationResponse>;
 
 	abstract create(
 		options: Omit<PublicKeyCredentialCreationOptionsJSON, "rp" | "pubKeyCredParams"> &

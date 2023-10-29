@@ -1,6 +1,6 @@
 import { AlchemyProvider } from "@alchemy/aa-alchemy";
 import { LightSmartContractAccount, getDefaultLightAccountFactory } from "@alchemy/aa-accounts";
-import { type SmartAccountSigner } from "@alchemy/aa-core";
+import { type WalletClientSigner } from "@alchemy/aa-core";
 import { type Chain, type Address } from "viem";
 
 // v6 entrypoint address
@@ -18,7 +18,7 @@ export const getAlchemyProvider = ({
 	signer,
 	chain,
 	entryPoint = ENTRYPOINT,
-}: { signer: SmartAccountSigner; chain: Chain; entryPoint: Address }) =>
+}: { signer: WalletClientSigner; chain: Chain; entryPoint?: Address }) =>
 	new AlchemyProvider({
 		apiKey: ALCHEMY_API_KEY,
 		chain,
