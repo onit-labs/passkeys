@@ -16,6 +16,7 @@ import { authenticationExtensionsClientOutputsSchema } from "./extensions";
 export const credentialPropertiesOutputSchema = z.object({
 	rk: z.boolean().optional(),
 });
+
 export const webauthnResultBaseSchema = z.object({
 	id: base64URLStringSchema,
 	rawId: base64URLStringSchema,
@@ -23,6 +24,7 @@ export const webauthnResultBaseSchema = z.object({
 	authenticatorAttachment: authenticatorAttachmentSchema.optional(),
 	clientExtensionResults: authenticationExtensionsClientOutputsSchema,
 });
+
 export const authenticatorAssertionResponseJSONSchema = z.object({
 	userHandle: base64URLStringSchema,
 	signature: base64URLStringSchema,

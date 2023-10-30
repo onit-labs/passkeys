@@ -17,7 +17,9 @@ export const authenticationExtensionsLargeBlobInputsSchema = z.object({
 	// - An opaque byte string that the Relying Party wishes to store with the existing credential. Only valid during authentication.
 	// - We impose that the data is passed as base64-url encoding to make better align the passing of data from RN to native code
 	write: base64URLStringSchema.optional(),
-}); /**
+});
+
+/**
  * - Specification reference: https://w3c.github.io/webauthn/#dictdef-authenticationextensionslargebloboutputs
  */
 export const authenticationExtensionsLargeBlobOutputsSchema = z.object({
@@ -25,6 +27,7 @@ export const authenticationExtensionsLargeBlobOutputsSchema = z.object({
 	blob: base64URLStringSchema.optional(),
 	written: z.boolean().optional(),
 });
+
 export const authenticationExtensionsClientOutputsSchema = z.object({
 	appid: z.boolean().optional(),
 	credProps: credentialPropertiesOutputSchema.optional(),
