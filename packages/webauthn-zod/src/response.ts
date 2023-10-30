@@ -13,10 +13,6 @@ import { authenticationExtensionsClientOutputsSchema } from "./extensions";
  * Webauthn Schemas
  */
 
-export const credentialPropertiesOutputSchema = z.object({
-	rk: z.boolean().optional(),
-});
-
 export const webauthnResultBaseSchema = z.object({
 	id: base64URLStringSchema,
 	rawId: base64URLStringSchema,

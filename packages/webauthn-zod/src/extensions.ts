@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { base64URLStringSchema } from "./helpers";
-import { largeBlobSupportSchema } from ".";
-import { credentialPropertiesOutputSchema } from "./response";
+import { largeBlobSupportSchema } from "./enums";
+
+export const credentialPropertiesOutputSchema = z.object({
+	rk: z.boolean().optional(),
+});
 
 /**
  * - Specification reference: https://w3c.github.io/webauthn/#dictdef-authenticationextensionslargeblobinputs
