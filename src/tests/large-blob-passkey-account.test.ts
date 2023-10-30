@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, test } from "vitest";
 import { CredentialIdEncodingError, MissingPrivateKeyError, MissingUsernameError } from "../errors";
 import { LargeBlobPasskeyAccount } from "../large-blob-passkey-account";
-import { base64URLStringSchema } from "../utils/webauthn-zod";
+import { base64URLStringSchema } from "../webauthn-zod/helpers";
 
 const notBase64UrlcredentialId = "ZGFua29nYWk=";
 const credentialId = base64URLStringSchema.parse("ZGFua29nYWk");

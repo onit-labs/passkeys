@@ -1,45 +1,60 @@
 import { z } from "zod";
 
+// ! allow enums are also allowed to be some unknown value of the correct type to allow for changes in the spec
+// ! see https://w3c.github.io/webauthn/#sct-domstring-backwards-compatibility
+
 export const publicKeyCredentialTypeSchema = z
 	.enum(["public-key"])
 	.brand<"PublicKeyCredentialType">()
+	.or(z.string())
 	.default("public-key");
 
 export const userVerificationRequirementSchema = z
 	.enum(["required", "preferred", "discouraged"])
 	.brand<"UserVerificationRequirement">()
+	.or(z.string())
 	.default("preferred");
 
 export const residentKeyRequirementSchema = z
 	.enum(["required", "preferred", "discouraged"])
 	.brand<"ResidentKeyRequirement">()
+	.or(z.string())
 	.default("preferred");
 
 export const largeBlobSupportSchema = z
-	.enum(["platform", "cross-platform"])
-	.brand<"LargeBlobSupport">();
+	.enum(["required", "preferred"])
+	.brand<"LargeBlobSupport">()
+	.or(z.string());
 
 export const attestationConveyancePreferenceSchema = z
 	.enum(["none", "indirect", "direct", "enterprise"])
-	.brand<"AttestationConveyancePreference">();
+	.brand<"AttestationConveyancePreference">()
+	.or(z.string());
 
 export const authenticatorAttachmentSchema = z
 	.enum(["platform", "cross-platform"])
-	.brand<"AuthenticatorAttachment">();
+	.brand<"AuthenticatorAttachment">()
+	.or(z.string());
 
-export const COSEAlgorithmIdentifierSchema = z.number().brand<"COSEAlgorithmIdentifier">();
+export const COSEAlgorithmIdentifierSchema = z
+	.number()
+	.brand<"COSEAlgorithmIdentifier">()
+	.or(z.number());
 
 export const authenticatorTransportFutureSchema = z
 	.enum(["ble", "cable", "hybrid", "internal", "nfc", "smart-card", "usb"])
-	.brand<"AuthenticatorTransportFuture">();
+	.brand<"AuthenticatorTransportFuture">()
+	.or(z.string());
 
 export const publicKeyCredentialHintsSchema = z
 	.enum(["security-key", "client-device", "hybrid"])
-	.brand<"PublicKeyCredentialHints">();
+	.brand<"PublicKeyCredentialHints">()
+	.or(z.string());
 
 export const attestationFormatSchema = z
 	.enum(["none", "packed", "tpm", "android-key", "android-safetynet", "fido-u2f", "apple"])
-	.brand<"AttestationFormat">();
+	.brand<"AttestationFormat">()
+	.or(z.string());
 
 export type LargeBlobSupport = z.infer<typeof largeBlobSupportSchema>;
 export type ResidentKeyRequirement = z.infer<typeof residentKeyRequirementSchema>;

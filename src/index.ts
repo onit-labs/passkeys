@@ -8,5 +8,5 @@ export {
 	type Base64String,
 	type Base64URLString,
 	webauthnAuthenticationResponseSchema,
-	webauthnRegistrationResultSchema,
-} from "./utils/webauthn-zod";
+	webauthnRegistrationResponseSchema as webauthnRegistrationResultSchema,
+} from "./webauthn-zod";

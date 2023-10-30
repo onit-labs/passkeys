@@ -10,7 +10,7 @@ import { base64URLStringToHex } from "./utils/encoding";
 import type { Account, Address, Hash, Hex, PrivateKeyAccount } from "viem";
 import type { AuthenticationResponseJSON } from "./passkey.types";
 import { Passkey } from "./passkey";
-import { Base64URLString } from "./utils/webauthn-zod";
+import { Base64URLString } from "./webauthn-zod/helpers";
 
 /**
  * Allow user to initiate the account having already verified the user holds the passkey

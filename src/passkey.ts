@@ -1,18 +1,20 @@
 import { Hex } from "viem";
 import { uint8ArrayToBase64URLString } from "./utils/encoding";
-import { Base64URLString } from "./utils/webauthn-zod";
+import { Base64URLString } from "./webauthn-zod/helpers";
+
 import type {
 	VerifiedAuthenticationResponse,
 	VerifiedRegistrationResponse,
 	VerifyAuthenticationResponseOpts,
 	VerifyRegistrationResponseOpts,
 } from "@simplewebauthn/server";
+
 import type {
 	AuthenticationResponseJSON,
 	PublicKeyCredentialCreationOptionsJSON,
 	PublicKeyCredentialRequestOptionsJSON,
 	RegistrationResponseJSON,
-} from "@simplewebauthn/typescript-types";
+} from "./webauthn-zod";
 
 type PasskeyParams = Pick<PublicKeyCredentialCreationOptionsJSON, "rp"> &
 	Partial<
@@ -42,6 +44,8 @@ interface WebauthnServerVerificationMethods {
  * or the result `passkey` api from `react-native-passkeys`
  */
 export abstract class Passkey implements WebauthnServerVerificationMethods {
+	rp: PublicKeyCredentialCreationOptionsJSON["rp"];
+
 	/**
 	 * This is simply the most widely supported public key type for webauthn
 	 * so we adopt it as a default to ease the boiler plate for the end user
@@ -59,6 +63,8 @@ export abstract class Passkey implements WebauthnServerVerificationMethods {
 	};
 
 	constructor(public params: PasskeyParams) {
+		this.rp = params.rp;
+
 		if (params.authenticatorSelection)
 			this.authenticatorSelection = {
 				...this.authenticatorSelection,
@@ -115,7 +121,7 @@ export abstract class PasskeySigner {
 	 *
 	 * @example ```ts
 	 * const allowCredentials = [{ type: 'public-key', credentialId }]
-	 * const passkeyResult = await this.get({ challenge, allowCredentials })
+	 * const passkeyResult = await this.passkey.get({ challenge, allowCredentials })
 	 * const base64UrlSignature = passkeyResult.response.signature
 	 * const { rawSignature, r, s } = this.getRAndSFromSignature(base64UrlSignature)
 	 * ```

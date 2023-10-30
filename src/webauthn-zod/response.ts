@@ -42,13 +42,13 @@ export const authenticatorAttestationResponseJSON = z.object({
  */
 
 export const webauthnAuthenticationResponseSchema = z
-	.object({
-		response: authenticatorAssertionResponseJSONSchema,
-	})
+	.object({ response: authenticatorAssertionResponseJSONSchema })
 	.merge(webauthnResultBaseSchema);
 
-export const webauthnRegistrationResultSchema = z
-	.object({
-		response: authenticatorAttestationResponseJSON,
-	})
+export type AuthenticationResponseJSON = z.infer<typeof webauthnAuthenticationResponseSchema>;
+
+export const webauthnRegistrationResponseSchema = z
+	.object({ response: authenticatorAttestationResponseJSON })
 	.merge(webauthnResultBaseSchema);
+
+export type RegistrationResponseJSON = z.infer<typeof webauthnRegistrationResponseSchema>;

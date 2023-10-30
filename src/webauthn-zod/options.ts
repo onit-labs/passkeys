@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { base64URLStringSchema } from "./helpers";
-import { Evaluate } from "../../types";
+import { Evaluate } from "../types";
 import {
 	COSEAlgorithmIdentifierSchema,
 	attestationConveyancePreferenceSchema,
@@ -29,21 +29,21 @@ export const publicKeyCredentialUserEntitySchema = z.object({
 });
 
 export const publicKeyCredentialParametersSchema = z.object({
-	type: z.string(),
+	type: publicKeyCredentialTypeSchema,
 	alg: COSEAlgorithmIdentifierSchema,
 });
 
 export const publicKeyCredentialDescriptorSchema = z.object({
 	id: base64URLStringSchema,
 	type: publicKeyCredentialTypeSchema,
-	transports: z.array(authenticatorTransportFutureSchema),
+	transports: z.array(authenticatorTransportFutureSchema).default([]).optional(),
 });
 
 export const authenticatorSelectionCriteriaSchema = z.object({
-	authenticatorAttachment: authenticatorAttachmentSchema,
+	authenticatorAttachment: authenticatorAttachmentSchema.optional(),
 	residentKey: residentKeyRequirementSchema.optional(),
-	requireResidentKey: z.boolean().default(false),
-	userVerification: userVerificationRequirementSchema,
+	requireResidentKey: z.boolean().default(false).optional(),
+	userVerification: userVerificationRequirementSchema.optional(),
 });
 
 export const publicKeyCredentialCreationOptionsSchema = z.object({
@@ -63,14 +63,14 @@ export type PublicKeyCredentialCreationOptionsJSON = Evaluate<
 >;
 
 export const publicKeyCredentialRequestOptionsSchema = z.object({
-	rpId: z.string(),
+	rpId: z.string().optional(),
 	challenge: base64URLStringSchema,
 	timeout: z.number().optional(),
 	allowCredentials: z.array(publicKeyCredentialDescriptorSchema).optional(),
-	userVerification: userVerificationRequirementSchema,
-	attestation: attestationConveyancePreferenceSchema.optional().default("none"),
-	attestationFormats: z.array(attestationFormatSchema).optional().default([]),
-	hints: z.array(publicKeyCredentialHintsSchema).optional().default([]),
+	userVerification: userVerificationRequirementSchema.optional(),
+	attestation: attestationConveyancePreferenceSchema.default("none").optional(),
+	attestationFormats: z.array(attestationFormatSchema).default([]).optional(),
+	hints: z.array(publicKeyCredentialHintsSchema).default([]).optional(),
 	extensions: authenticationExtensionsClientInputsSchema.optional(),
 });
 
