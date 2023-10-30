@@ -19,8 +19,8 @@ import {
 	type JsonRpcAccount,
 	fromHex,
 } from "viem";
-import type { AuthenticationResponseJSON } from "./passkey.types";
 import { Passkey } from "./passkey";
+import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "./webauthn-zod";
 import { Base64URLString, base64URLStringSchema } from "./webauthn-zod/helpers";
 import { Storage, createStorage, noopStorage } from "wagmi";
 import {
@@ -30,6 +30,15 @@ import {
 } from "./errors";
 import { PrivateKeyAccount } from "node_modules/viem/_types/types/account";
 import { ZodType, z } from "zod";
+import {
+	PublicKeyCredentialRequestOptionsJSON,
+	PublicKeyCredentialCreationOptionsJSON,
+} from "./webauthn-zod";
+import {
+	VerifiedAuthenticationResponse,
+	VerifiedRegistrationResponse,
+} from "@simplewebauthn/server";
+import { SetRequired } from "./types";
 
 type CredentialId = Base64URLString;
 
@@ -52,6 +61,10 @@ type Account = CustomSource & JsonRpcAccount;
 type Opts<TPasskey extends Passkey = Passkey> = {
 	credentialId?: Base64URLString;
 	username?: string;
+	/**
+	 * @warning This flag should only be enabled if a secure storage location is being provided. Otherwise the users will
+	 * be stored in **plain-text** in `localStorage`!
+	 */
 	storePrivateKey?: boolean;
 	passkey: TPasskey;
 	storage?: typeof noopStorage;
@@ -71,40 +84,16 @@ export const zodEthAddress = zodHexString.refine(getAddress);
 
 const defaultLargeBlobSchema = z.object({ privateKey: zodHexString });
 
-/**
- *
- * TODO:
- * [x] Allow users to pass `storage` & a `storePrivateKey` flag
- * i. [ ] document that the storePrivateKey flag should only be enabled if a secure storage location is being provided
- *
- * TODO:
- * [x] If storage is not passed or there is no data in storage, a `credentialId` | `username` must be explicitly passed
- *
- * TODO:
- * [ ] If the user has not yet created a largeBlob on the passkey then
- * i.   [ ] create the EOA & store the private key locally (temporarily until the next signature or just invoke two sigs)?
- * ii.  [ ] based on the storage flag store the key or not
- * iii. [ ] *ALWAYS* store the credentialId on passkey creation & return to the developer so they can also handle storage
- *
- * TODO:
- * [ ] First check storage for Private Key (pk) (& later we can also add account index?)
- *
- * TODO:
- * [ ] Create signing functions for wagmi
- *
- *
- */
-// export class LargeBlobPasskeyAccount<TPasskey extends Passkey = Passkey> implements Account {
 export class LargeBlobPasskeyAccount<
 	TPasskey extends Passkey = Passkey,
-	TLargeBlobSchema extends ZodType = z.infer<typeof defaultLargeBlobSchema>,
+	TLargeBlobSchema extends ZodType = typeof defaultLargeBlobSchema,
 > implements Account
 {
 	public credentialId?: Base64URLString;
 	public username?: string;
 	public passkey: TPasskey;
 	public storage: Storage<StorageKeys>;
-	public largeBlobSchema = defaultLargeBlobSchema;
+	public largeBlobSchema: TLargeBlobSchema = defaultLargeBlobSchema;
 
 	constructor(
 		public opts: Opts<TPasskey> = { passkey: undefined },
@@ -188,53 +177,36 @@ export class LargeBlobPasskeyAccount<
 	// TODO: [ ] recover wallet for viem account with passed credential
 	// ? maybe after first recovery we can keep the privateKey in memory as a LocalAccount?
 
-	private async createEoa(
-		credentialId?: CredentialId,
-	): Promise<{ account: PrivateKeyAccount; privateKey: Hex }> {
+	private async createEoa(): Promise<{ account: PrivateKeyAccount; privateKey: Hex }> {
 		const privateKey = generatePrivateKey();
 		const account = privateKeyToAccount(privateKey);
 
-		if (credentialId) {
-			await this.updateStoredAccounts({ address: account.address, credentialId });
-		}
+		if (this.opts.storePrivateKey) await this.storage.setItem("account-privateKey", privateKey);
 
 		return { account, privateKey };
 	}
 
 	private async createAccount(username?: string): Promise<PrivateKeyAccount | undefined> {
-		// TODO: [ ] check for existence `username`
-		// TODO: [ ] if it exists & we do not have the linked `credentialId` stored ... what to do?
-		// TODO: [ ] if it exists & we do not have the linked `largeBlob-address` stored -> authenticate & store result
-		// TODO: [ ] if neither create the eoa and store the bloby
-
+		/**
+		 * TODO:
+		 * 	[ ] if `username` exists & we do not have the linked `credentialId` stored allow the user to sign in with no
+		 * 			`allowedCredentials` & verify the returned data against server-side data to re-capture the credentialId
+		 *
+		 */
 		// - if `credentialId` exists then authenticate passkey & check largeBlob for privateKey
 		if (this.credentialId) {
-			const allowCredentials = [{ type: "public-key" as const, id: this.credentialId }];
-
-			const opts = await this.passkey.generateAuthenticationOptions({
-				rpId: this.passkey.rp.id,
-				allowCredentials,
+			const authentication = await this.authenticate({
+				allowCredentials: [{ type: "public-key" as const, id: this.credentialId }],
 				extensions: { largeBlob: { read: true } },
 			});
 
-			const authenticationResponse = await this.passkey.get(opts);
-
-			if (authenticationResponse) {
-				const response = await this.passkey.verifyAuthentication({
-					// ! we should also allow for arbitrary strings here to allow for updates to the spec
-					// @ts-expect-error: Type `string` is not assignable to type `AuthenticatorAttachment | undefined`
-					response: authenticationResponse,
-				});
-
-				if (response.verified) {
-					console.log("response verified", response);
-					const largeBlob = authenticationResponse.clientExtensionResults.largeBlob?.blob;
-					// - make sure the blob matches our expectation of a private key
-					if (largeBlob) {
-						const blobData = this.deserialiseLargeBlob(largeBlob);
-						return privateKeyToAccount(blobData.privateKey);
-						// - make sure private key matches the stored address
-					}
+			if (authentication?.verified && authentication?.response) {
+				const largeBlob = authentication.response.clientExtensionResults.largeBlob?.blob;
+				// - make sure the blob matches our expectation of a private key
+				if (largeBlob) {
+					const blobData = this.deserialiseLargeBlob(largeBlob);
+					return privateKeyToAccount(blobData.privateKey);
+					// - make sure private key matches the stored address
 				}
 			}
 		}
@@ -246,66 +218,37 @@ export class LargeBlobPasskeyAccount<
 			const eoa = await this.createEoa();
 
 			// - verify the passkey supports largeBlob
-			const opts = await this.passkey.generateRegistrationOptions({
-				...this.passkey,
+			const registration = await this.register({
 				extensions: { largeBlob: { support: "required" } },
 				user: {
-					id: base64.fromBuffer(fromHex(eoa.publicKey, "bytes"), true),
+					id: base64.fromBuffer(fromHex(eoa.account.publicKey, "bytes"), true),
 					name: username,
 					displayName: username,
 				},
 			});
 
-			const registrationResponse = await this.passkey.create(opts);
+			if (registration?.verified && registration.response && registration?.info?.credentialID) {
+				// - set & store the credentialId
+				const credentialId = base64.fromBuffer(registration.info.credentialID, true);
+				await this.updateStoredAccounts({ address: eoa.account.address, credentialId });
+				this.credentialId = credentialId;
 
-			if (registrationResponse) {
-				const response = await this.passkey.verifyRegistration({
-					// @ts-expect-error: Type `string` is not assignable to type `AuthenticatorTransportFuture[] | undefined`
-					// ! we should also allow for arbitrary strings here to allow for updates to the spec
-					response: registrationResponse,
-				});
-
-				if (response.verified) {
-					console.log("response verified", response);
-
-					if (!response.registrationInfo?.credentialID)
-						throw new Error("Verified webauthn response without returning `credentialId`");
-
-					// - set & store the credentialId
-					this.credentialId = base64.fromBuffer(response.registrationInfo.credentialID, true);
-
-					// - make sure largeBlob is supported and store the key
-					if (registrationResponse.clientExtensionResults.largeBlob?.supported) {
+				// - make sure largeBlob is supported and store the key
+				if (registration.response.clientExtensionResults.largeBlob?.supported) {
+					const authentication = await this.authenticate({
 						// biome-ignore lint/style/noNonNullAssertion: we throw before this if undefined
-						const allowCredentials = [{ type: "public-key" as const, id: this.credentialId! }];
+						allowCredentials: [{ type: "public-key" as const, id: this.credentialId! }],
+						extensions: {
+							largeBlob: { write: this.serialiseLargeBlob({ privateKey: eoa.privateKey }) },
+						},
+					});
 
-						const authOpts = await this.passkey.generateAuthenticationOptions({
-							rpId: this.passkey.rp.id,
-							allowCredentials,
-							extensions: {
-								largeBlob: { write: this.serialiseLargeBlob({ privateKey: eoa.privateKey }) },
-							},
-						});
-
-						const authenticationResponse = await this.passkey.get(authOpts);
-
-						if (authenticationResponse) {
-							const response = await this.passkey.verifyAuthentication({
-								// ! we should also allow for arbitrary strings here to allow for updates to the spec
-								response: authenticationResponse,
-							});
-
-							// TODO: verify the blob has been stored successfully!
-							// TODO: if a blob has not been stored successfully we should raise it to the user to NOT send funds
-							// TODO: to the account until it is
-							if (response.verified) {
-								console.log("response verified", response);
-								const largeBlob = authenticationResponse.clientExtensionResults.largeBlob?.blob;
-								// - make sure the blob matches our expectation of a private key
-								if (largeBlob) {
-									const blobData = this.deserialiseLargeBlob(largeBlob);
-								}
-							}
+					if (authentication?.verified && authentication?.response) {
+						console.log("response verified", authentication.response);
+						const largeBlob = authentication.response.clientExtensionResults.largeBlob?.blob;
+						// TODO: make sure the blob matches our expectation of a private key
+						if (largeBlob) {
+							const blobData = this.deserialiseLargeBlob(largeBlob);
 						}
 					}
 				}
@@ -355,7 +298,17 @@ export class LargeBlobPasskeyAccount<
 		}
 	}
 
-	// tODO: [] given a type (r1 or k1) decide which signing type to do (the passkey signer should handle all the challenge stuff)
+	/**
+	 * TODO:
+	 *  [] given a type (r1 or k1) decide which signing type to do (the passkey signer should handle all the challenge stuff)
+	 *
+	 * TODO:
+	 * [ ] First check storage for Private Key (pk) (& later we can also add account index?)
+	 *
+	 * TODO:
+	 * [ ] Create signing functions for wagmi
+	 *
+	 */
 
 	async signMessage({ message }) {
 		throw new Error("Method not implemented.");
@@ -369,23 +322,86 @@ export class LargeBlobPasskeyAccount<
 		throw new Error("Method `signTransaction` not supported.");
 	}
 
-	// async authenticate() {
-	// 	this.assertHasSufficientInformation();
-	// 	const { credentialId, privateKey } = this;
-	// 	const passkey = new Passkey({ credentialId, privateKey });
-	// 	const authenticationResponse = await passkey.authenticate();
-	// 	this.credentialId = authenticationResponse.credentialId;
-	// 	this.privateKey = authenticationResponse.privateKey;
-	// 	this.address = privateKeyToAddress(authenticationResponse.privateKey);
-	// 	return authenticationResponse;
-	// }
+	async authenticate(options: Omit<PublicKeyCredentialRequestOptionsJSON, "challenge">): Promise<
+		| { response: AuthenticationResponseJSON; verified: false }
+		| {
+				response: AuthenticationResponseJSON;
+				info: VerifiedAuthenticationResponse["authenticationInfo"];
+				verified: true;
+		  }
+		| undefined
+	> {
+		const opts = await this.passkey.generateAuthenticationOptions({
+			rpId: this.passkey.rp.id,
+			...options,
+		});
 
-	// async create() {
-	// 	this.assertHasSufficientInformation();
-	// 	const { credentialId, privateKey } = this;
-	// 	const passkey = new Passkey({ credentialId, privateKey });
-	// 	const authenticationResponse = await passkey.create();
-	// 	this.credentialId = authenticationResponse.credentialId;
+		const authenticationResponse = await this.passkey.get(opts);
+
+		if (authenticationResponse) {
+			const response = await this.passkey.verifyAuthentication({
+				// ! we should also allow for arbitrary strings here to allow for updates to the spec
+				// @ts-expect-error: Type `string` is not assignable to type `AuthenticatorAttachment | undefined`
+				response: authenticationResponse,
+			});
+
+			if (response.verified) {
+				return {
+					verified: true,
+					response: authenticationResponse,
+					info: response.authenticationInfo,
+				};
+			} else return { verified: false, response: authenticationResponse };
+		}
+	}
+
+	async register(
+		options: Omit<PublicKeyCredentialCreationOptionsJSON, "challenge" | "rp" | "pubKeyCredParams"> &
+			Partial<Pick<PublicKeyCredentialCreationOptionsJSON, "rp" | "pubKeyCredParams">>,
+	): Promise<
+		| {
+				verified: true;
+				response: RegistrationResponseJSON;
+				info?: SetRequired<
+					NonNullable<VerifiedRegistrationResponse["registrationInfo"]>,
+					"credentialID"
+				>;
+		  }
+		| {
+				verified: false;
+				response: RegistrationResponseJSON;
+		  }
+		| undefined
+	> {
+		// - verify the passkey supports largeBlob
+		const opts = await this.passkey.generateRegistrationOptions({
+			...this.passkey,
+			...options,
+		});
+
+		const registrationResponse = await this.passkey.create(opts);
+
+		if (registrationResponse) {
+			const response = await this.passkey.verifyRegistration({
+				// @ts-expect-error: Type `string` is not assignable to type `AuthenticatorTransportFuture[] | undefined`
+				// ! we should also allow for arbitrary strings here to allow for updates to the spec
+				response: registrationResponse,
+			});
+
+			if (response.verified) {
+				console.log("response verified", response);
+
+				if (!response.registrationInfo?.credentialID)
+					throw new Error("Verified webauthn response without returning `credentialId`");
+
+				return { response: registrationResponse, verified: true, info: response.registrationInfo };
+			} else
+				return {
+					verified: false,
+					response: registrationResponse,
+				};
+		}
+	}
 }
 
 // export type PasskeyAccount = ReturnType<InstanceType<typeof LargeBlobPasskeyAccount>["toAccount"]>;
