@@ -2,7 +2,7 @@
 import {
 	publicKeyCredentialRequestOptionsSchema,
 	type PublicKeyCredentialRequestOptionsJSON,
-} from "@forum/passkeys/webauthn-zod";
+} from "webauthn-zod";
 
 export async function generateAuthenticationOptions(
 	options: Omit<PublicKeyCredentialRequestOptionsJSON, "challenge">,

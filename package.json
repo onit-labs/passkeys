@@ -1,73 +1,35 @@
 {
   "name": "@forum/passkeys",
-  "module": "index.ts",
-  "type": "module",
+  "private": "true",
   "version": "0.1.2",
-  "description": "A utility library for using (webauthn) passkeys with viem & wagmi",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
   "scripts": {
-    "build": "bun run clean && bun run build:cjs && bun run build:esm && bun run build:types",
-    "build:cjs": "tsc --project ./tsconfig.build.json --module commonjs --outDir ./src/_cjs --removeComments --verbatimModuleSyntax false && printf '{\"type\":\"commonjs\"}' > ./src/_cjs/package.json",
-    "build:esm": "tsc --project ./tsconfig.build.json --module es2015 --outDir ./src/_esm && printf '{\"type\": \"module\",\"sideEffects\":false}' > ./src/_esm/package.json",
-    "build:types": "tsc --project ./tsconfig.build.json --module esnext --declarationDir ./src/_types --emitDeclarationOnly --declaration --declarationMap",
-    "changeset": "changeset",
-    "changeset:release": "bun run build && changeset publish",
-    "changeset:version": "changeset version && bun install --lockfile-only",
-    "clean": "rimraf dist *.tsbuildinfo",
     "format": "biome format . --write",
     "lint": "biome check .",
     "lint:fix": "bun run lint --apply",
-    "size": "size-limit",
     "test": "vitest",
     "test:cov": "vitest run --coverage",
     "test:typecheck": "vitest typecheck",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": [
-    "webauthn",
-    "passkeys",
-    "viem",
-    "wagmi"
-  ],
   "author": "Peter Ferguson <peterferguson95@gmail.com> (https://github.com/peterferguson)",
   "license": "MIT",
   "devDependencies": {
     "@biomejs/biome": "1.2.2",
     "@changesets/cli": "^2.26.2",
-    "@simplewebauthn/server": "^8.3.5",
-    "@simplewebauthn/typescript-types": "^8.3.4",
-    "@tanstack/react-query": "^5.0.5",
-    "@types/react": "^18.0.25",
     "bun-types": "^1.0.1",
-    "jsdom": "^22.1.0",
-    "rimraf": "^5.0.1",
     "simple-git-hooks": "^2.8.1",
     "typescript": "^5.2.2",
     "vitest": "^0.34.6"
   },
-  "peerDependencies": {
-    "typescript": "^5.0.0",
-    "viem": "*",
-    "wagmi": "*",
-    "zod": "*"
-  },
   "simple-git-hooks": {
     "pre-commit": "bun run format && bun run lint:fix"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/forumdaos/passkeys.git"
-  },
-  "bugs": {
-    "url": "https://github.com/forumdaos/passkeys/issues"
-  },
-  "homepage": "https://github.com/forumdaos/passkeys#readme",
-  "dependencies": {
-    "@alchemy/aa-core": "^0.1.1",
-    "@hexagon/base64": "^1.1.28",
+  "resolutions": {
     "viem": "2.0.0-alpha.17",
-    "wagmi": "alpha",
-    "zod": "^3.22.4"
-  }
+    "wagmi": "alpha"
+  },
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ]
 }

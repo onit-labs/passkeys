@@ -3,7 +3,7 @@
 import {
 	publicKeyCredentialCreationOptionsSchema,
 	type PublicKeyCredentialCreationOptionsJSON,
-} from "@forum/passkeys/webauthn-zod";
+} from "webauthn-zod";
 
 import { generateRegistrationOptions as generateOptions } from "@simplewebauthn/server";
 

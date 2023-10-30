@@ -1,17 +1,11 @@
 "use server";
 
 // tODO: replace these with serialisable/zod versions
-import {
-	verifyAuthenticationResponse,
-	type VerifyRegistrationResponseOpts,
-} from "@simplewebauthn/server";
+import { verifyAuthenticationResponse } from "@simplewebauthn/server";
+import { type RegistrationResponseJSON, webauthnRegistrationResponseSchema } from "webauthn-zod";
 
-import { webauthnRegistrationResultSchema } from "@forum/passkeys";
-
-import { type RegistrationResponseJSON } from "@forum/passkeys/webauthn-zod";
-
-import { action } from "../client";
 import { z } from "zod";
+import { action } from "../client";
 
 export const verifyRegistration = action(
 	z.any(),
@@ -22,6 +16,6 @@ export const verifyRegistration = action(
 
 		console.log("verifyRegistration - verification", verification);
 
-		return webauthnRegistrationResultSchema.parse(verification);
+		return webauthnRegistrationResponseSchema.parse(verification);
 	},
 );

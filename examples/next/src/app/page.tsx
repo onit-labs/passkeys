@@ -3,14 +3,12 @@
 import { getAlchemyProvider } from "@/lib/alchemy";
 import { defaultChainId, getChainAndTransport } from "@/lib/wagmi";
 import { WalletClientSigner } from "@alchemy/aa-core";
+import { LargeBlobPasskeyAccount, Passkey, passkeyConnector } from "@forum/passkeys";
 import {
-	AuthenticationCredential,
-	LargeBlobPasskeyAccount,
-	Passkey,
-	RegistrationCredential,
-	passkeyConnector,
-} from "@forum/passkeys";
-import { base64URLStringToBuffer } from "@forum/passkeys/utils/encoding";
+	type AuthenticationCredential,
+	type RegistrationCredential,
+} from "@forum/passkeys/passkey.types";
+import { base64URLStringToBuffer } from "@forum/passkeys/src/utils/encoding";
 import {
 	type AuthenticationExtensionsClientOutputs,
 	AuthenticationResponseJSON,
@@ -20,7 +18,7 @@ import {
 	type RegistrationResponseJSON,
 	authenticationExtensionsClientOutputsSchema,
 	base64URLStringSchema,
-} from "@forum/passkeys/webauthn-zod";
+} from "webauthn-zod";
 import { Account, createWalletClient } from "viem";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 
@@ -31,7 +29,7 @@ import type {
 	VerifyRegistrationResponseOpts,
 } from "@simplewebauthn/server";
 
-import * as webauthnServerActions from "./webauthn-server-actions";
+import * as webauthnServerActions from "webauthn-server-actions";
 
 class ExamplePasskey implements Passkey {
 	constructor(

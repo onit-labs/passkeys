@@ -8,7 +8,7 @@ import type {
 	PublicKeyCredentialUserEntityJSON,
 	AuthenticatorAttestationResponseJSON,
 } from "@simplewebauthn/typescript-types";
-import { Base64URLString } from "./webauthn-zod/helpers";
+import { Base64URLString } from "webauthn-zod";
 
 export type {
 	AttestationConveyancePreference,

@@ -20,8 +20,8 @@ import {
 	fromHex,
 } from "viem";
 import { Passkey } from "./passkey";
-import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "./webauthn-zod";
-import { Base64URLString, base64URLStringSchema } from "./webauthn-zod/helpers";
+import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "webauthn-zod";
+import { Base64URLString, base64URLStringSchema } from "webauthn-zod";
 import { Storage, createStorage, noopStorage } from "wagmi";
 import {
 	CredentialIdEncodingError,
@@ -33,7 +33,7 @@ import { ZodType, z } from "zod";
 import {
 	PublicKeyCredentialRequestOptionsJSON,
 	PublicKeyCredentialCreationOptionsJSON,
-} from "./webauthn-zod";
+} from "webauthn-zod";
 import {
 	VerifiedAuthenticationResponse,
 	VerifiedRegistrationResponse,

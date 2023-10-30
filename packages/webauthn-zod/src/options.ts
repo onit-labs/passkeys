@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { base64URLStringSchema } from "./helpers";
-import { Evaluate } from "../types";
+
 import {
 	COSEAlgorithmIdentifierSchema,
 	attestationConveyancePreferenceSchema,
@@ -58,7 +58,10 @@ export const publicKeyCredentialCreationOptionsSchema = z.object({
 	extensions: authenticationExtensionsClientInputsSchema.optional(),
 });
 
-export type PublicKeyCredentialCreationOptionsJSON = Evaluate<
+// https://twitter.com/mattpocockuk/status/1622730173446557697?s=20&t=NdpAcmEFXY01xkqU3KO0Mg
+export type Simplify<type> = { [key in keyof type]: type[key] } & unknown;
+
+export type PublicKeyCredentialCreationOptionsJSON = Simplify<
 	z.infer<typeof publicKeyCredentialCreationOptionsSchema>
 >;
 
@@ -74,6 +77,6 @@ export const publicKeyCredentialRequestOptionsSchema = z.object({
 	extensions: authenticationExtensionsClientInputsSchema.optional(),
 });
 
-export type PublicKeyCredentialRequestOptionsJSON = Evaluate<
+export type PublicKeyCredentialRequestOptionsJSON = Simplify<
 	z.infer<typeof publicKeyCredentialRequestOptionsSchema>
 >;

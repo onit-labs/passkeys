@@ -1,6 +1,6 @@
 import { Hex } from "viem";
 import { uint8ArrayToBase64URLString } from "./utils/encoding";
-import { Base64URLString } from "./webauthn-zod/helpers";
+import { Base64URLString } from "webauthn-zod";
 
 import type {
 	VerifiedAuthenticationResponse,
@@ -14,7 +14,7 @@ import type {
 	PublicKeyCredentialCreationOptionsJSON,
 	PublicKeyCredentialRequestOptionsJSON,
 	RegistrationResponseJSON,
-} from "./webauthn-zod";
+} from "webauthn-zod";
 
 type PasskeyParams = Pick<PublicKeyCredentialCreationOptionsJSON, "rp"> &
 	Partial<
