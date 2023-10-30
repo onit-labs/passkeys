@@ -32,6 +32,10 @@ export const authenticationExtensionsClientOutputsSchema = z.object({
 	largeBlob: authenticationExtensionsLargeBlobOutputsSchema.optional(),
 });
 
+export type AuthenticationExtensionsClientOutputs = z.infer<
+	typeof authenticationExtensionsClientOutputsSchema
+>;
+
 export const authenticationExtensionsClientInputsSchema = z.object({
 	appid: z.string().optional(),
 	credProps: z.boolean().optional(),

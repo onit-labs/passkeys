@@ -50,14 +50,14 @@ export abstract class Passkey implements WebauthnServerVerificationMethods {
 	 * This is simply the most widely supported public key type for webauthn
 	 * so we adopt it as a default to ease the boiler plate for the end user
 	 */
-	pubKeyCredParams: PublicKeyCredentialCreationOptionsJSON["pubKeyCredParams"] = [
+	pubKeyCredParams?: PublicKeyCredentialCreationOptionsJSON["pubKeyCredParams"] = [
 		{ type: "public-key", alg: -7 },
 	];
 
 	/**
 	 * These are the default selector options for a passkey vs a 'regular' webauthn credential
 	 */
-	authenticatorSelection: PublicKeyCredentialCreationOptionsJSON["authenticatorSelection"] = {
+	authenticatorSelection?: PublicKeyCredentialCreationOptionsJSON["authenticatorSelection"] = {
 		residentKey: "required",
 		userVerification: "preferred",
 	};

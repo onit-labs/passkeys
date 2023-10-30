@@ -58,19 +58,6 @@ type StorageKeys = {
  */
 type Account = CustomSource & JsonRpcAccount;
 
-type Opts<TPasskey extends Passkey = Passkey> = {
-	credentialId?: Base64URLString;
-	username?: string;
-	/**
-	 * @warning This flag should only be enabled if a secure storage location is being provided. Otherwise the users will
-	 * be stored in **plain-text** in `localStorage`!
-	 */
-	storePrivateKey?: boolean;
-	passkey: TPasskey;
-	storage?: typeof noopStorage;
-	largeBlobSchema?: ZodType;
-};
-
 export const zodHexString = z.preprocess(
 	(val) => {
 		if (typeof val !== "string") return "0x";
@@ -84,9 +71,31 @@ export const zodEthAddress = zodHexString.refine(getAddress);
 
 const defaultLargeBlobSchema = z.object({ privateKey: zodHexString });
 
+type Opts<
+	TPasskey extends Passkey = Passkey,
+	TLargeBlobSchema extends z.Schema<
+		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		z.ZodObject<{ privateKey: Address } & Record<string, any>>
+	> = typeof defaultLargeBlobSchema,
+> = {
+	credentialId?: Base64URLString;
+	username?: string;
+	/**
+	 * @warning This flag should only be enabled if a secure storage location is being provided. Otherwise the users will
+	 * be stored in **plain-text** in `localStorage`!
+	 */
+	storePrivateKey?: boolean;
+	passkey: TPasskey;
+	storage?: typeof noopStorage;
+	largeBlobSchema?: TLargeBlobSchema;
+};
+
 export class LargeBlobPasskeyAccount<
 	TPasskey extends Passkey = Passkey,
-	TLargeBlobSchema extends ZodType = typeof defaultLargeBlobSchema,
+	TLargeBlobSchema extends z.Schema<
+		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		z.ZodObject<{ privateKey: Address } & Record<string, any>>
+	> = typeof defaultLargeBlobSchema,
 > implements Account
 {
 	public credentialId?: Base64URLString;
@@ -96,7 +105,7 @@ export class LargeBlobPasskeyAccount<
 	public largeBlobSchema: TLargeBlobSchema = defaultLargeBlobSchema;
 
 	constructor(
-		public opts: Opts<TPasskey> = { passkey: undefined },
+		public opts: Opts<TPasskey, TLargeBlobSchema> = { passkey: undefined },
 		/**
 		 * @warning This is to appease wagmi/viem we are going to be presenting the 4337 account as the address rather than this signer
 		 */
