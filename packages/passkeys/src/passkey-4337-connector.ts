@@ -67,11 +67,15 @@ export function passkeyConnector(parameters: PasskeyConnectorParameters) {
 		async getAccounts() {
 			const provider = await this.getProvider();
 			if (!provider) throw new ProviderNotFoundError();
-			const accounts = (await provider.request({ method: "eth_accounts" })) as [
-				string,
-				...string[],
-			];
-			return accounts.map(getAddress);
+			console.log("getAccounts", provider, await provider.getAddress());
+
+			return [await provider.getAddress()];
+
+			// const accounts = (await provider.request({ method: "eth_accounts" })) as [
+			// 	string,
+			// 	...string[],
+			// ];
+			// return accounts.map(getAddress);
 		},
 
 		async getChainId() {

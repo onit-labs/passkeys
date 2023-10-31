@@ -1,43 +1,34 @@
-import {
-	privateKeyToAddress,
-	signMessage,
-	generatePrivateKey,
-	signTransaction,
-	signTypedData,
-	toAccount,
-	privateKeyToAccount,
-} from "viem/accounts";
-import { base64URLStringToHex } from "./utils/encoding";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
-import * as base64 from "@hexagon/base64";
+import { base64 } from "@hexagon/base64";
 import {
+	VerifiedAuthenticationResponse,
+	VerifiedRegistrationResponse,
+} from "@simplewebauthn/server";
+import {
+	fromHex,
 	getAddress,
 	type Address,
 	type CustomSource,
-	type Hash,
 	type Hex,
 	type JsonRpcAccount,
-	fromHex,
+	type PrivateKeyAccount,
 } from "viem";
-import { Passkey } from "./passkey";
-import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "webauthn-zod";
-import { Base64URLString, base64URLStringSchema } from "webauthn-zod";
 import { Storage, createStorage, noopStorage } from "wagmi";
+import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "webauthn-zod";
+import {
+	Base64URLString,
+	PublicKeyCredentialCreationOptionsJSON,
+	PublicKeyCredentialRequestOptionsJSON,
+	base64URLStringSchema,
+} from "webauthn-zod";
+import { z } from "zod";
 import {
 	CredentialIdEncodingError,
 	MissingCredentialIdError,
 	MissingUsernameError,
 } from "./errors";
-import { PrivateKeyAccount } from "node_modules/viem/_types/types/account";
-import { ZodType, z } from "zod";
-import {
-	PublicKeyCredentialRequestOptionsJSON,
-	PublicKeyCredentialCreationOptionsJSON,
-} from "webauthn-zod";
-import {
-	VerifiedAuthenticationResponse,
-	VerifiedRegistrationResponse,
-} from "@simplewebauthn/server";
+import { Passkey } from "./passkey";
 import { SetRequired } from "./types";
 
 type CredentialId = Base64URLString;
@@ -156,14 +147,18 @@ export class LargeBlobPasskeyAccount<
 		this.assertHasSufficientInformation();
 	}
 
+	/**
+	 * This method inits the class whilst ensuring that a passkey account is created & linked
+	 */
 	public static async init(opts?: Opts): Promise<LargeBlobPasskeyAccount> {
 		const account = new LargeBlobPasskeyAccount(opts);
 
 		await this.syncStoredState(account);
 
-		if (account.credentialId && !base64URLStringSchema.safeParse(account.credentialId).success) {
+		if (!account.credentialId && opts?.username) console.log(await account.createAccount());
+
+		if (account.credentialId && !base64URLStringSchema.safeParse(account.credentialId).success)
 			throw new CredentialIdEncodingError();
-		}
 
 		return account;
 	}
@@ -175,6 +170,7 @@ export class LargeBlobPasskeyAccount<
 		const accounts = await this.storage.getItem("account-largeBlob-accounts");
 
 		if (address && credentialId && accounts && address === accounts?.[credentialId]) {
+			this.address = address;
 			this.storage.setItem("account-largeBlob-accounts", {
 				...accounts,
 				[credentialId]: address,
@@ -195,13 +191,16 @@ export class LargeBlobPasskeyAccount<
 		return { account, privateKey };
 	}
 
-	private async createAccount(username?: string): Promise<PrivateKeyAccount | undefined> {
+	private async createAccount(
+		username: string | undefined = this.username,
+	): Promise<PrivateKeyAccount | undefined> {
 		/**
 		 * TODO:
 		 * 	[ ] if `username` exists & we do not have the linked `credentialId` stored allow the user to sign in with no
 		 * 			`allowedCredentials` & verify the returned data against server-side data to re-capture the credentialId
 		 *
 		 */
+		console.log("checking for credentialId", this.credentialId);
 		// - if `credentialId` exists then authenticate passkey & check largeBlob for privateKey
 		if (this.credentialId) {
 			const authentication = await this.authenticate({
@@ -220,6 +219,7 @@ export class LargeBlobPasskeyAccount<
 			}
 		}
 
+		console.log("checking for username", this.username);
 		// - no `credentialId` or no account found on the blob
 		// - use username to create an EOA in the blob
 		if (username) {
@@ -230,18 +230,23 @@ export class LargeBlobPasskeyAccount<
 			const registration = await this.register({
 				extensions: { largeBlob: { support: "required" } },
 				user: {
-					id: base64.fromBuffer(fromHex(eoa.account.publicKey, "bytes"), true),
+					id: base64.fromArrayBuffer(fromHex(eoa.account.publicKey, "bytes"), true).slice(0, 32),
 					name: username,
 					displayName: username,
 				},
 			});
 
-			if (registration?.verified && registration.response && registration?.info?.credentialID) {
-				// - set & store the credentialId
-				const credentialId = base64.fromBuffer(registration.info.credentialID, true);
-				await this.updateStoredAccounts({ address: eoa.account.address, credentialId });
-				this.credentialId = credentialId;
+			console.log(
+				"checking registration verification",
+				registration,
+				registration?.verified && registration.response && registration?.info?.credentialID,
+			);
 
+			if (registration?.verified && registration.response && registration?.info?.credentialID) {
+				console.log(
+					"checking largeBlob support",
+					registration.response.clientExtensionResults.largeBlob?.supported,
+				);
 				// - make sure largeBlob is supported and store the key
 				if (registration.response.clientExtensionResults.largeBlob?.supported) {
 					const authentication = await this.authenticate({
@@ -252,12 +257,22 @@ export class LargeBlobPasskeyAccount<
 						},
 					});
 
+					console.log(
+						"checking authentication verification",
+						registration,
+						registration?.verified && registration.response && registration?.info?.credentialID,
+					);
 					if (authentication?.verified && authentication?.response) {
 						console.log("response verified", authentication.response);
 						const largeBlob = authentication.response.clientExtensionResults.largeBlob?.blob;
 						// TODO: make sure the blob matches our expectation of a private key
 						if (largeBlob) {
 							const blobData = this.deserialiseLargeBlob(largeBlob);
+
+							// - set & store the credentialId & address
+							const credentialId = base64.fromArrayBuffer(registration.info.credentialID, true);
+							await this.updateStoredAccounts({ address: eoa.account.address, credentialId });
+							this.credentialId = credentialId;
 						}
 					}
 				}
@@ -384,10 +399,12 @@ export class LargeBlobPasskeyAccount<
 	> {
 		// - verify the passkey supports largeBlob
 		const opts = await this.passkey.generateRegistrationOptions({
+			pubKeyCredParams: this.passkey.pubKeyCredParams ?? [],
 			...this.passkey,
 			...options,
 		});
 
+		console.log("opts", opts);
 		const registrationResponse = await this.passkey.create(opts);
 
 		if (registrationResponse) {
@@ -404,11 +421,8 @@ export class LargeBlobPasskeyAccount<
 					throw new Error("Verified webauthn response without returning `credentialId`");
 
 				return { response: registrationResponse, verified: true, info: response.registrationInfo };
-			} else
-				return {
-					verified: false,
-					response: registrationResponse,
-				};
+			}
+			return { verified: false, response: registrationResponse };
 		}
 	}
 }

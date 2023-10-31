@@ -4,6 +4,7 @@ import base64 from "@hexagon/base64";
 // - helpers
 const base64Like = z.union([
 	z.instanceof(Buffer),
+	z.instanceof(ArrayBuffer),
 	z.instanceof(Uint8Array),
 	z.instanceof(Uint16Array),
 	z.instanceof(Uint32Array),

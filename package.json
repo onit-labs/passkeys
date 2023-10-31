@@ -24,12 +24,24 @@
   "simple-git-hooks": {
     "pre-commit": "bun run format && bun run lint:fix"
   },
+  "overrides": {
+    "@tanstack/react-query": "^5.0.5",
+    "viem": "2.0.0-alpha.17",
+    "wagmi": "alpha"
+  },
   "resolutions": {
+    "@tanstack/react-query": "^5.0.5",
     "viem": "2.0.0-alpha.17",
     "wagmi": "alpha"
   },
   "workspaces": [
     "packages/*",
     "examples/*"
-  ]
+  ],
+  "dependencies": {
+    "@hexagon/base64": "^1.1.28",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.5"
+  }
 }
