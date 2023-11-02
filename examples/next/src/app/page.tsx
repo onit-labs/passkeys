@@ -127,7 +127,8 @@ class ExamplePasskey implements Passkey {
 			"mediation" | "signal"
 		>): Promise<AuthenticationResponseJSON | null> {
 		const credential = (await navigator.credentials.get({
-			mediation,
+			// mediation: mediation ?? (await mediationAvailable()) ? "conditional" : "optional",
+			mediation: mediation ?? "optional",
 			signal,
 			publicKey: {
 				...request,

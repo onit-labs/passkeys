@@ -6,22 +6,13 @@ import {
 	VerifiedRegistrationResponse,
 } from "@simplewebauthn/server";
 import {
-	baseGoerli
-} from 'viem/chains'
-import {
 	fromHex,
 	getAddress,
 	type Address,
 	type CustomSource,
 	type Hex,
 	type JsonRpcAccount,
-	type PrivateKeyAccount,
-	concatHex,
-	encodeFunctionData,
-	getContract,
-	createPublicClient,
-	http,
-	PublicClient,
+	type PrivateKeyAccount
 } from "viem";
 import { Storage, createStorage, noopStorage } from "wagmi";
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "webauthn-zod";
@@ -39,7 +30,6 @@ import {
 } from "./errors";
 import { Passkey } from "./passkey";
 import { SetRequired } from "./types";
-import { EntryPointAbi, SimpleAccountFactoryAbi } from "@alchemy/aa-core";
 
 type CredentialId = Base64URLString;
 
@@ -89,6 +79,21 @@ type Opts<
 	passkey: TPasskey;
 	storage?: typeof noopStorage;
 	largeBlobSchema?: TLargeBlobSchema;
+};
+
+const mediationAvailable = async () => {
+	const pubKeyCred = PublicKeyCredential;
+	// Check if the function exists on the browser - Not safe to assume as the page will crash if the function is not available
+	//typeof check is used as browsers that do not support mediation will not have the 'isConditionalMediationAvailable' method available
+	if (
+		typeof pubKeyCred.isConditionalMediationAvailable === "function" &&
+		(await pubKeyCred.isConditionalMediationAvailable())
+	) {
+		console.log("Conditional Mediation is available");
+		return true;
+	}
+	console.log("Conditional Mediation is not available");
+	return false;
 };
 
 export class LargeBlobPasskeyAccount<
@@ -164,7 +169,11 @@ export class LargeBlobPasskeyAccount<
 
 		await this.syncStoredState(account);
 
-		if (!account.credentialId && opts?.username) console.log(await account.createAccount());
+		await mediationAvailable()
+		if (account.credentialId) await account.loadAccount()
+		else if (opts?.username) await account.createAccount()
+
+		// todo: connect private key largeBlob account in this case
 
 		if (account.credentialId && !base64URLStringSchema.safeParse(account.credentialId).success)
 			throw new CredentialIdEncodingError();
@@ -209,26 +218,10 @@ export class LargeBlobPasskeyAccount<
 		 * 			`allowedCredentials` & verify the returned data against server-side data to re-capture the credentialId
 		 *
 		 */
-		console.log("checking for credentialId", this.credentialId);
 		// - if `credentialId` exists then authenticate passkey & check largeBlob for privateKey
-		if (this.credentialId) {
-			const authentication = await this.authenticate({
-				allowCredentials: [{ type: "public-key" as const, id: this.credentialId }],
-				extensions: { largeBlob: { read: true } },
-			});
+		if (this.credentialId)
+			return await this.loadAccount()
 
-			if (authentication?.verified && authentication?.response) {
-				const largeBlob = authentication.response.clientExtensionResults.largeBlob?.blob;
-				// - make sure the blob matches our expectation of a private key
-				if (largeBlob) {
-					const blobData = this.deserialiseLargeBlob(largeBlob);
-					return privateKeyToAccount(blobData.privateKey);
-					// - make sure private key matches the stored address
-				}
-			}
-		}
-
-		console.log("checking for username", this.username);
 		// - no `credentialId` or no account found on the blob
 		// - use username to create an EOA in the blob
 		if (username) {
@@ -245,17 +238,8 @@ export class LargeBlobPasskeyAccount<
 				},
 			});
 
-			console.log(
-				"checking registration verification",
-				registration,
-				registration?.verified && registration.response.id,
-			);
-
 			if (registration?.verified && registration.response.id) {
-				console.log(
-					"checking largeBlob support",
-					registration.response.clientExtensionResults.largeBlob?.supported,
-				);
+
 				// - make sure largeBlob is supported and store the key
 				if (registration.response.clientExtensionResults.largeBlob?.supported) {
 					const authentication = await this.authenticate({
@@ -265,22 +249,17 @@ export class LargeBlobPasskeyAccount<
 						},
 					});
 
-					console.log(
-						"checking authentication verification",
-						registration,
-						registration?.verified && registration.response && registration?.info?.credentialID,
-					);
+
 					if (authentication?.verified && authentication?.response) {
-						console.log("response verified", authentication.response);
 						const written = authentication.response.clientExtensionResults.largeBlob?.written;
 						// TODO: make sure the blob matches our expectation of a private key
 						if (written) {
 							// - set & store the credentialId & address
-							const credentialId = base64.fromArrayBuffer(registration.response.id, true);
+							const credentialId = registration.response.id
 							await this.updateStoredAccounts({ address: eoa.account.address, credentialId });
 							this.credentialId = credentialId;
 							this.address = eoa.account.address;
-							console.log('written', this)
+							await this.syncStoredState()
 						}
 					}
 				}
@@ -290,8 +269,35 @@ export class LargeBlobPasskeyAccount<
 		}
 	}
 
+	private async loadAccount() {
+		if (!this.credentialId) throw new Error('Cannot load account without credentialId')
+
+		// - if `credentialId` exists then authenticate passkey & check largeBlob for privateKey
+		const authentication = await this.authenticate({
+			allowCredentials: [{ type: "public-key" as const, id: this.credentialId }],
+			extensions: { largeBlob: { read: true } },
+		});
+
+		if (authentication?.verified && authentication?.response) {
+			const largeBlob = authentication.response.clientExtensionResults.largeBlob?.blob;
+			// - make sure the blob matches our expectation of a private key
+			if (largeBlob) {
+
+				console.log('largeBlob', largeBlob)
+				const blobData = this.deserialiseLargeBlob(largeBlob);
+				console.log('blobData', blobData)
+				const account = privateKeyToAccount(blobData.privateKey);
+				// TODO: make sure private key matches the stored address
+				this.address = account.address;
+				await this.syncStoredState()
+				return account
+			}
+		}
+
+	}
+
 	private deserialiseLargeBlob(blob: Base64URLString): z.infer<typeof this.largeBlobSchema> {
-		return this.largeBlobSchema.parse(JSON.parse(base64.ToString(blob, true)));
+		return this.largeBlobSchema.parse(JSON.parse(base64.toString(blob, true)));
 	}
 
 	private serialiseLargeBlob(blobData: z.infer<typeof this.largeBlobSchema>): Base64URLString {
@@ -328,6 +334,10 @@ export class LargeBlobPasskeyAccount<
 				throw new CredentialIdEncodingError();
 			}
 		}
+	}
+
+	private async syncStoredState() {
+		await LargeBlobPasskeyAccount.syncStoredState(this);
 	}
 
 	/**
@@ -417,7 +427,6 @@ export class LargeBlobPasskeyAccount<
 			...options,
 		});
 
-		console.log("opts", opts);
 		const registrationResponse = await this.passkey.create(opts);
 
 		if (registrationResponse) {
@@ -428,7 +437,6 @@ export class LargeBlobPasskeyAccount<
 			});
 
 			if (response.verified) {
-				console.log("response verified", response);
 
 				if (!response.registrationInfo?.credentialID)
 					throw new Error("Verified webauthn response without returning `credentialId`");
