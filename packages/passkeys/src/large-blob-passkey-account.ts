@@ -6,6 +6,9 @@ import {
 	VerifiedRegistrationResponse,
 } from "@simplewebauthn/server";
 import {
+	baseGoerli
+} from 'viem/chains'
+import {
 	fromHex,
 	getAddress,
 	type Address,
@@ -13,6 +16,12 @@ import {
 	type Hex,
 	type JsonRpcAccount,
 	type PrivateKeyAccount,
+	concatHex,
+	encodeFunctionData,
+	getContract,
+	createPublicClient,
+	http,
+	PublicClient,
 } from "viem";
 import { Storage, createStorage, noopStorage } from "wagmi";
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "webauthn-zod";
@@ -30,6 +39,7 @@ import {
 } from "./errors";
 import { Passkey } from "./passkey";
 import { SetRequired } from "./types";
+import { EntryPointAbi, SimpleAccountFactoryAbi } from "@alchemy/aa-core";
 
 type CredentialId = Base64URLString;
 
@@ -87,8 +97,7 @@ export class LargeBlobPasskeyAccount<
 		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 		z.ZodObject<{ privateKey: Address } & Record<string, any>>
 	> = typeof defaultLargeBlobSchema,
-> implements Account
-{
+> implements Account {
 	public credentialId?: Base64URLString;
 	public username?: string;
 	public passkey: TPasskey;
@@ -239,10 +248,10 @@ export class LargeBlobPasskeyAccount<
 			console.log(
 				"checking registration verification",
 				registration,
-				registration?.verified && registration.response && registration?.info?.credentialID,
+				registration?.verified && registration.response.id,
 			);
 
-			if (registration?.verified && registration.response && registration?.info?.credentialID) {
+			if (registration?.verified && registration.response.id) {
 				console.log(
 					"checking largeBlob support",
 					registration.response.clientExtensionResults.largeBlob?.supported,
@@ -250,8 +259,7 @@ export class LargeBlobPasskeyAccount<
 				// - make sure largeBlob is supported and store the key
 				if (registration.response.clientExtensionResults.largeBlob?.supported) {
 					const authentication = await this.authenticate({
-						// biome-ignore lint/style/noNonNullAssertion: we throw before this if undefined
-						allowCredentials: [{ type: "public-key" as const, id: this.credentialId! }],
+						allowCredentials: [{ type: "public-key" as const, id: registration.response.id }],
 						extensions: {
 							largeBlob: { write: this.serialiseLargeBlob({ privateKey: eoa.privateKey }) },
 						},
@@ -264,15 +272,15 @@ export class LargeBlobPasskeyAccount<
 					);
 					if (authentication?.verified && authentication?.response) {
 						console.log("response verified", authentication.response);
-						const largeBlob = authentication.response.clientExtensionResults.largeBlob?.blob;
+						const written = authentication.response.clientExtensionResults.largeBlob?.written;
 						// TODO: make sure the blob matches our expectation of a private key
-						if (largeBlob) {
-							const blobData = this.deserialiseLargeBlob(largeBlob);
-
+						if (written) {
 							// - set & store the credentialId & address
-							const credentialId = base64.fromArrayBuffer(registration.info.credentialID, true);
+							const credentialId = base64.fromArrayBuffer(registration.response.id, true);
 							await this.updateStoredAccounts({ address: eoa.account.address, credentialId });
 							this.credentialId = credentialId;
+							this.address = eoa.account.address;
+							console.log('written', this)
 						}
 					}
 				}
@@ -349,10 +357,10 @@ export class LargeBlobPasskeyAccount<
 	async authenticate(options: Omit<PublicKeyCredentialRequestOptionsJSON, "challenge">): Promise<
 		| { response: AuthenticationResponseJSON; verified: false }
 		| {
-				response: AuthenticationResponseJSON;
-				info: VerifiedAuthenticationResponse["authenticationInfo"];
-				verified: true;
-		  }
+			response: AuthenticationResponseJSON;
+			info: VerifiedAuthenticationResponse["authenticationInfo"];
+			verified: true;
+		}
 		| undefined
 	> {
 		const opts = await this.passkey.generateAuthenticationOptions({
@@ -367,6 +375,11 @@ export class LargeBlobPasskeyAccount<
 				// ! we should also allow for arbitrary strings here to allow for updates to the spec
 				// @ts-expect-error: Type `string` is not assignable to type `AuthenticatorAttachment | undefined`
 				response: authenticationResponse,
+				// authenticator: {
+				// 	credentialPublicKey: undefined,
+				// 	credentialID: undefined,
+				// 	counter: 0,
+				// },
 			});
 
 			if (response.verified) {
@@ -384,17 +397,17 @@ export class LargeBlobPasskeyAccount<
 			Partial<Pick<PublicKeyCredentialCreationOptionsJSON, "rp" | "pubKeyCredParams">>,
 	): Promise<
 		| {
-				verified: true;
-				response: RegistrationResponseJSON;
-				info?: SetRequired<
-					NonNullable<VerifiedRegistrationResponse["registrationInfo"]>,
-					"credentialID"
-				>;
-		  }
+			verified: true;
+			response: RegistrationResponseJSON;
+			info?: SetRequired<
+				NonNullable<VerifiedRegistrationResponse["registrationInfo"]>,
+				"credentialID"
+			>;
+		}
 		| {
-				verified: false;
-				response: RegistrationResponseJSON;
-		  }
+			verified: false;
+			response: RegistrationResponseJSON;
+		}
 		| undefined
 	> {
 		// - verify the passkey supports largeBlob

@@ -6,6 +6,7 @@
     "format": "biome format . --write",
     "lint": "biome check .",
     "lint:fix": "bun run lint --apply",
+    "postinstall": "patch-package",
     "test": "vitest",
     "test:cov": "vitest run --coverage",
     "test:typecheck": "vitest typecheck",

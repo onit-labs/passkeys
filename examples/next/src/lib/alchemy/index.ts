@@ -1,7 +1,8 @@
-import { AlchemyProvider } from "@alchemy/aa-alchemy";
-import { LightSmartContractAccount, getDefaultLightAccountFactory } from "@alchemy/aa-accounts";
+import { getDefaultLightAccountFactory } from "@alchemy/aa-accounts";
+// import { AlchemyProvider } from "@alchemy/aa-alchemy";
 import { type WalletClientSigner } from "@alchemy/aa-core";
-import { type Chain, type Address } from "viem";
+import { type Address, type Chain } from "viem";
+import { LightSmartContractAccount, AlchemyProvider } from "./patch";
 
 // v6 entrypoint address
 const ENTRYPOINT = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789" as const;

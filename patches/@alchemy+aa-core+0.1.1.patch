@@ -1,0 +1,39 @@
+diff --git a/node_modules/@alchemy/aa-core/dist/cjs/account/base.js b/node_modules/@alchemy/aa-core/dist/cjs/account/base.js
+index 4fef759..7c02f85 100644
+--- a/node_modules/@alchemy/aa-core/dist/cjs/account/base.js
++++ b/node_modules/@alchemy/aa-core/dist/cjs/account/base.js
+@@ -87,7 +87,7 @@ class BaseSmartContractAccount {
+         this.entryPoint = (0, viem_1.getContract)({
+             address: params.entryPointAddress,
+             abi: EntryPointAbi_js_1.EntryPointAbi,
+-            publicClient: this.rpcProvider,
++            client: this.rpcProvider,
+         });
+     }
+     async signTypedData(_params) {
+diff --git a/node_modules/@alchemy/aa-core/dist/esm/account/base.js b/node_modules/@alchemy/aa-core/dist/esm/account/base.js
+index bfff89b..c731832 100644
+--- a/node_modules/@alchemy/aa-core/dist/esm/account/base.js
++++ b/node_modules/@alchemy/aa-core/dist/esm/account/base.js
+@@ -84,7 +84,7 @@ export class BaseSmartContractAccount {
+         this.entryPoint = getContract({
+             address: params.entryPointAddress,
+             abi: EntryPointAbi,
+-            publicClient: this.rpcProvider,
++            client: this.rpcProvider,
+         });
+     }
+     async signTypedData(_params) {
+diff --git a/node_modules/@alchemy/aa-core/src/account/base.ts b/node_modules/@alchemy/aa-core/src/account/base.ts
+index 13e1e3d..a995ef9 100644
+--- a/node_modules/@alchemy/aa-core/src/account/base.ts
++++ b/node_modules/@alchemy/aa-core/src/account/base.ts
+@@ -103,7 +103,7 @@ export abstract class BaseSmartContractAccount<
+       abi: EntryPointAbi,
+       // Need to cast this as PublicClient or else it breaks ABI typing.
+       // This is valid because our PublicClient is a subclass of PublicClient
+-      publicClient: this.rpcProvider as PublicClient,
++      client: this.rpcProvider as PublicClient,
+     });
+   }
+ 

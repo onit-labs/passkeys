@@ -1,5 +1,6 @@
 "use server";
 
+// @ts-ignore
 import base64 from "@hexagon/base64";
 // tODO: replace these with serialisable/zod versions
 // import { verifyRegistrationResponse } from "@simplewebauthn/server";
@@ -9,6 +10,7 @@ import {
 	decodeClientDataJSON,
 	parseAuthenticatorData,
 } from "@simplewebauthn/server/helpers";
+import type { CredentialDeviceType } from "@simplewebauthn/typescript-types";
 import {
 	type RegistrationResponseJSON,
 	webauthnRegistrationResponseSchema,
@@ -19,58 +21,7 @@ import {
 
 import { z } from "zod";
 import { action } from "../client";
-
-// ! pull in fn/types that are not exposed by simplewebauthn atm
-
-type AuthenticationExtensionsAuthenticatorOutputs = {
-	devicePubKey?: DevicePublicKeyAuthenticatorOutput;
-	uvm?: UVMAuthenticatorOutput;
-};
-type DevicePublicKeyAuthenticatorOutput = {
-	dpk?: Uint8Array;
-	sig?: string;
-	nonce?: Uint8Array;
-	scope?: Uint8Array;
-	aaguid?: Uint8Array;
-};
-type UVMAuthenticatorOutput = {
-	uvm?: Uint8Array[];
-};
-
-/**
- * Make sense of Bits 3 and 4 in authenticator indicating:
- *
- * - Whether the credential can be used on multiple devices
- * - Whether the credential is backed up or not
- *
- * Invalid configurations will raise an `Error`
- */
-function parseBackupFlags({ be, bs }) {
-	const credentialBackedUp = bs;
-	let credentialDeviceType: CredentialDeviceType = "singleDevice";
-	if (be) {
-		credentialDeviceType = "multiDevice";
-	}
-	if (credentialDeviceType === "singleDevice" && credentialBackedUp) {
-		throw new InvalidBackupFlags(
-			"Single-device credential indicated that it was backed up, which should be impossible.",
-		);
-	}
-	return { credentialDeviceType, credentialBackedUp };
-}
-class InvalidBackupFlags extends Error {
-	constructor(message) {
-		super(message);
-		this.name = "InvalidBackupFlags";
-	}
-}
-
-/**
- * The two types of credentials as defined by bit 3 ("Backup Eligibility") in authenticator data:
- * - `"singleDevice"` credentials will never be backed up
- * - `"multiDevice"` credentials can be backed up
- */
-type CredentialDeviceType = "singleDevice" | "multiDevice";
+import { parseBackupFlags, type AuthenticationExtensionsAuthenticatorOutputs } from "../utils";
 
 export const verifyRegistration = action(
 	z.any(),
@@ -104,6 +55,8 @@ export const verifyRegistration = action(
 		const { aaguid, rpIdHash, flags, credentialID, counter, credentialPublicKey, extensionsData } =
 			authData;
 		const { credentialDeviceType, credentialBackedUp } = parseBackupFlags(flags);
+
+		// TODO: verify the challenge with iron-session seal
 
 		return {
 			verified: true,

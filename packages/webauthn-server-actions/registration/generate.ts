@@ -5,20 +5,16 @@ import {
 	type PublicKeyCredentialCreationOptionsJSON,
 } from "webauthn-zod";
 import { z } from "zod";
-// import { kv } from "@vercel/kv";
+// import { getSession } from "../session";
 
 import { generateRegistrationOptions as generateOptions } from "@simplewebauthn/server";
 
 import { action } from "../client";
 
-const defaultAuthenticatorSelection = {
-	residentKey: "preferred",
-	userVerification: "preferred",
-};
-
 export const generateRegistrationOptions = action(
 	publicKeyCredentialCreationOptionsSchema.omit({ challenge: true }),
 	async (options): Promise<PublicKeyCredentialCreationOptionsJSON> => {
+		// const session = getSession();
 		console.log("generateRegistrationOptions - options", options);
 
 		const generated = await generateOptions({
