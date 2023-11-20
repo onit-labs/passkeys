@@ -1,7 +1,7 @@
 {
   "name": "webauthn-zod",
   "type": "module",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A utility library for using webauthn with zod",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
