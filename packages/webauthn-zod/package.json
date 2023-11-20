@@ -3,13 +3,14 @@
   "type": "module",
   "version": "0.1.4",
   "description": "A utility library for using webauthn with zod",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "files": [
+    "/src",
+    "/dist"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "bun run clean && bun run build:cjs && bun run build:esm && bun run build:types",
-    "build:cjs": "tsc --project ./tsconfig.build.json --module commonjs --outDir ./src/_cjs --removeComments --verbatimModuleSyntax false && printf '{\"type\":\"commonjs\"}' > ./src/_cjs/package.json",
-    "build:esm": "tsc --project ./tsconfig.build.json --module es2015 --outDir ./src/_esm && printf '{\"type\": \"module\",\"sideEffects\":false}' > ./src/_esm/package.json",
-    "build:types": "tsc --project ./tsconfig.build.json --module esnext --declarationDir ./src/_types --emitDeclarationOnly --declaration --declarationMap",
+    "build": "tsup --format esm",
     "changeset": "changeset",
     "changeset:release": "bun run build && changeset publish",
     "changeset:version": "changeset version && bun install --lockfile-only",
@@ -40,6 +41,7 @@
     "jsdom": "^22.1.0",
     "rimraf": "^5.0.1",
     "simple-git-hooks": "^2.8.1",
+    "tsup": "^7.2.0",
     "typescript": "^5.2.2",
     "vitest": "^0.34.6"
   },
@@ -60,6 +62,7 @@
   },
   "homepage": "https://github.com/forumdaos/passkeys#readme",
   "dependencies": {
+    "@hexagon/base64": "^1.1.28",
     "@simplewebauthn/server": "^8.3.5",
     "zod": "^3.22.4"
   }

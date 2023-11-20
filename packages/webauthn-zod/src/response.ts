@@ -8,7 +8,6 @@ import {
 } from "./enums";
 import { authenticationExtensionsClientOutputsSchema } from "./extensions";
 
-// TODO: move these into appropriate files & make this a distinct package
 /**
  * Webauthn Schemas
  */

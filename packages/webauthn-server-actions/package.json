@@ -45,7 +45,6 @@
   },
   "peerDependencies": {
     "typescript": "^5.0.0",
-    "webauthn-zod": "*",
     "zod": "*"
   },
   "simple-git-hooks": {
@@ -62,6 +61,7 @@
   "homepage": "https://github.com/forumdaos/passkeys#readme",
   "dependencies": {
     "@simplewebauthn/server": "^8.3.5",
+    "webauthn-zod": "workspace:*",
     "zod": "^3.22.4"
   }
 }

@@ -26,9 +26,9 @@ export const authenticationExtensionsLargeBlobInputsSchema = z.object({
  * - Specification reference: https://w3c.github.io/webauthn/#dictdef-authenticationextensionslargebloboutputs
  */
 export const authenticationExtensionsLargeBlobOutputsSchema = z.object({
-	supported: z.boolean().optional(),
-	blob: base64URLStringSchema.optional(),
-	written: z.boolean().optional(),
+	supported: z.boolean().optional().nullable(),
+	blob: base64URLStringSchema.optional().nullable(),
+	written: z.boolean().optional().nullable(),
 });
 
 export const authenticationExtensionsClientOutputsSchema = z.object({
