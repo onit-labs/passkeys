@@ -12,7 +12,11 @@ import {
 	residentKeyRequirementSchema,
 	userVerificationRequirementSchema,
 } from "./enums";
+
 import { authenticationExtensionsClientInputsSchema } from "./extensions";
+
+// https://twitter.com/mattpocockuk/status/1622730173446557697?s=20&t=NdpAcmEFXY01xkqU3KO0Mg
+export type Simplify<type> = { [key in keyof type]: type[key] } & unknown;
 
 export const publicKeyCredentialEntitySchema = z.object({ name: z.string() });
 
@@ -58,8 +62,19 @@ export const publicKeyCredentialCreationOptionsSchema = z.object({
 	extensions: authenticationExtensionsClientInputsSchema.optional(),
 });
 
-// https://twitter.com/mattpocockuk/status/1622730173446557697?s=20&t=NdpAcmEFXY01xkqU3KO0Mg
-export type Simplify<type> = { [key in keyof type]: type[key] } & unknown;
+/**
+ * - Specification reference: https://w3c.github.io/webauthn/#dictdef-collectedclientdata
+ */
+export const collectedClientDataSchema = z
+	.object({
+		type: z.string(),
+		challenge: z.string(),
+		origin: z.string(),
+		crossOrigin: z.boolean().optional(),
+		topOrigin: z.string().optional(),
+	})
+	// ! explicitly allow passthrough as per the note in the spec
+	.passthrough();
 
 export type PublicKeyCredentialCreationOptionsJSON = Simplify<
 	z.infer<typeof publicKeyCredentialCreationOptionsSchema>

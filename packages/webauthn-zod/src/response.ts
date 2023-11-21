@@ -34,10 +34,11 @@ export const authenticatorAttestationResponseJSON = z.object({
 	transports: z.array(authenticatorTransportFutureSchema).optional(),
 	publicKeyAlgorithm: COSEAlgorithmIdentifierSchema.optional(),
 	publicKey: base64URLStringSchema.optional(),
-}); /**
+});
+
+/**
  * ! The following are the useful schemas above is all sub-schemas
  */
-
 export const webauthnAuthenticationResponseSchema = z
 	.object({ response: authenticatorAssertionResponseJSONSchema })
 	.merge(webauthnResultBaseSchema);
