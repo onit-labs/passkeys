@@ -1,6 +1,6 @@
 {
   "name": "@forum/passkeys",
-  "module": "index.ts",
+  "module": ".src/index.ts",
   "type": "module",
   "version": "0.1.2",
   "description": "A utility library for using (webauthn) passkeys with viem & wagmi",
